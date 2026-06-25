@@ -19,7 +19,8 @@ The product is comparable in spirit to documentation portals such as **docs.avev
 
 - A **drop-in, style-isolated** documentation control usable by any web app, regardless of its framework.
 - A **master/landing page** aggregating multiple documentation sets (spaces/products) with global search.
-- Three-pane reading experience with **responsive** behavior (right TOC appears only when space allows).
+- Three-pane reading experience that is **fully mobile-compatible** — a mobile-first responsive layout that collapses gracefully to phones (the right TOC appears only when space allows).
+- A **basic test/demo host application** (static HTML page + tiny mock-IdP) that embeds the control and exercises the full host-issued-token flow end-to-end.
 - **Full CMS authoring**: create/edit markdown, drafts → publish, revision history, and multiple released product versions.
 - **Rich markdown**: syntax-highlighted code, Mermaid diagrams, GFM tables, admonitions/callouts, and KaTeX math.
 - **LLM features**: ask questions about docs (RAG with citations), generate summaries, and extract information into a downloadable document.
@@ -33,6 +34,7 @@ The product is comparable in spirit to documentation portals such as **docs.avev
 - Real-time multi-user collaborative editing (Google-Docs-style cursors). Edits are last-write-wins with optimistic locking + revision history.
 - Large/enterprise multi-tenant scale-out (designed for **< 10k pages, < 500 concurrent users**, with a documented scale-out path).
 - Building a bespoke identity provider — auth is delegated to the host.
+- **PWA / offline service-worker caching and native (app-store) apps** — v1 is responsive web only; offline reading is via PDF export. (PWA/Capacitor remains a documented future path.)
 
 ### 1.3 Key Decisions (Summary)
 
@@ -57,6 +59,9 @@ The product is comparable in spirit to documentation portals such as **docs.avev
 | Analytics | Page views / popular docs + LLM answer feedback (👍/👎) |
 | License | Open-source intended (permissive, e.g. Apache-2.0/MIT) |
 | Tenancy | Single-tenant OSS in v1; schema/auth seams kept multi-tenant-ready |
+| Mobile | Fully responsive web (mobile-first); **no PWA/native** in v1 |
+| Offline | Via existing PDF export (download a page/book/space); no service worker |
+| Test host | Static HTML page embedding the control + tiny Node mock-IdP (demo JWT) |
 | Auth token | Host IdP issues JWT directly (no token-exchange endpoint in v1) |
 | LLM models | GPT-4o-class chat + `text-embedding-3-small`; budget guard + rate limits |
 
@@ -185,13 +190,26 @@ Design principles:
 └───────────────┴───────────────────────────────────┴─────────────────────┘
 ```
 
-**Responsive behavior**
+**Responsive behavior (mobile-first, fully mobile-compatible — decision below)**
 - **≥ 1280px**: all three panes visible.
 - **1024–1280px**: right TOC collapses to a floating "On this page" button/popover.
-- **768–1024px**: left index becomes a slide-over drawer; center full-width; TOC hidden.
-- **< 768px (mobile)**: hamburger drawer for nav, full-width content, TOC via a bottom sheet.
+- **768–1024px (tablet)**: left index becomes a slide-over drawer; center full-width; TOC hidden.
+- **< 768px (mobile)**: single-column, full-width content; nav and TOC move to mobile affordances (below).
 
 **Right TOC ("if space available")** is derived from the page's heading structure (H2/H3, optionally H4). It uses scroll-spy to highlight the active section and supports click-to-scroll with smooth anchored navigation. It is only mounted when the viewport width clears a configurable threshold.
+
+### 3.2.1 Mobile Experience (v1: responsive web only)
+
+The control is **fully responsive web** — touch-first, works on phones in any host. **No PWA/service worker and no native wrapper in v1** (offline reading is delivered via PDF export, not in-app caching — see §7). The following mobile patterns are first-class requirements:
+
+- **Swipe-able nav drawer** — the left page index opens as a left-edge swipe / hamburger drawer with a scrim; swipe-to-close, focus-trapped, remembers expansion state.
+- **Bottom-sheet TOC** — the right "On this page" index becomes a draggable bottom sheet on small screens (snap points: peek / expanded), with scroll-spy preserved.
+- **Full-screen Ask (LLM) panel** — the assistant opens as a full-screen, thumb-friendly sheet with streamed answers, scope selector, citations, and 👍/👎; safe-area aware.
+- **Sticky search + reachable quick actions** — a persistent top search bar; export / language / version / Ask controls kept within thumb range (bottom action bar or sheet on phones).
+- **Readable typography & code handling** — mobile-tuned font sizes and line length; long code blocks scroll horizontally (or soft-wrap, toggle) with copy; wide tables get horizontal scroll with edge-fade affordance; Mermaid diagrams pinch/scroll-zoom.
+- **Touch ergonomics** — ≥ 44px tap targets, `:active` feedback, momentum scroll, `prefers-reduced-motion` respected, iOS safe-area insets honored.
+
+Breakpoints/affordances are driven by container width (via `ResizeObserver` inside the Shadow DOM) so the layout adapts to the **host's allotted space**, not just the viewport — important since the control may be embedded in a narrow column.
 
 ### 3.3 Left Navigation Index
 
@@ -258,7 +276,8 @@ The **reader control stays light**; heavyweight editing libraries live only in `
 
 ### 3.8 Accessibility
 
-- WCAG 2.1 AA target: semantic landmarks, focus management for drawers/popovers, ARIA for the tree and TOC, keyboard-operable search and Ask panel, sufficient contrast in both themes, `prefers-reduced-motion` support.
+- WCAG 2.1 AA target: semantic landmarks, focus management for drawers/popovers/bottom-sheets, ARIA for the tree and TOC, keyboard-operable search and Ask panel, sufficient contrast in both themes, `prefers-reduced-motion` support.
+- **Mobile a11y**: ≥ 44px touch targets, focus trapping in the swipe drawer / bottom sheet / full-screen Ask panel, screen-reader-correct open/close announcements, and respect for iOS/Android safe areas and dynamic text scaling.
 
 ---
 
@@ -502,6 +521,7 @@ sequenceDiagram
 
 - **Server-side, high-fidelity** rendering via headless **Chromium (Playwright)**.
 - Two scopes: **single page** and **full book/space** (concatenated, with cover page, TOC, and page numbers).
+- **Offline reading (decision):** since v1 is responsive-web-only (no PWA), "download for offline" is delivered by this same pipeline — a user downloads a **page, book, or space as a PDF** to read offline. No service-worker caching or offline HTML bundle is built in v1.
 - Flow: client requests export → API enqueues a job → worker assembles a print-optimized HTML (same renderer + a print stylesheet, Mermaid/KaTeX rendered) → Chromium prints to PDF → stored in object storage → API returns a short-lived signed download URL → client downloads.
 - Print CSS: page breaks before H1/H2, repeated headers/footers, link URLs footnoted, image scaling, code-block wrapping.
 - The same pipeline backs the **LLM artifact → PDF** download.
@@ -646,9 +666,14 @@ xdocs/
     workers/
     migrations/        # Alembic
     tests/
+  examples/
+    test-host/         # demo host app: static HTML page + Node mock-IdP (§17)
+      public/          # index.html embedding <xdocs-viewer>
+      server.js        # mock-IdP: /auth/token + JWKS
+      README.md
   deploy/
     docker/            # Dockerfiles
-    compose/           # docker-compose.yml
+    compose/           # docker-compose.yml (stack + test-host service)
     helm/              # k8s chart
   docs/
     design/            # this document
@@ -662,9 +687,11 @@ xdocs/
 
 **Phase 0 — Foundations**
 - Repo scaffolding, FastAPI skeleton, Postgres + pgvector + Alembic, Docker Compose, auth (JWT validation) stub, Web Component build pipeline + Tailwind-in-shadow.
+- **Test host scaffold**: static HTML page + Node mock-IdP (`/auth/token` + JWKS) wired to the backend, added to the compose stack — used as the integration/E2E fixture from day one (§17).
 
-**Phase 1 — Read Experience (MVP)**
-- Content model (spaces/books/pages, default locale), server-side markdown render + heading extraction, `<xdocs-viewer>` three-pane layout (left nav, content, right TOC, responsive), `<xdocs-master>`, theming tokens, code highlight + Mermaid + KaTeX + admonitions.
+**Phase 1 — Read Experience (MVP, mobile-first)**
+- Content model (spaces/books/pages, default locale), server-side markdown render + heading extraction, `<xdocs-viewer>` three-pane layout (left nav, content, right TOC), `<xdocs-master>`, theming tokens, code highlight + Mermaid + KaTeX + admonitions.
+- **Full mobile responsiveness (§3.2.1)**: swipe nav drawer, bottom-sheet TOC, sticky search, container-width breakpoints (`ResizeObserver`), mobile typography/code/table handling, touch ergonomics — validated via Playwright emulated viewports against the test host.
 
 **Phase 2 — Search**
 - Chunking, embeddings worker, hybrid FTS + pgvector search, type-ahead, scoped/ACL filtering, search UI.
@@ -697,6 +724,56 @@ The initial open questions have been decided as follows (these are now binding f
 5. **Version UX** — **Per-version visibility flags + a pinned default.** Each `PRODUCT_VERSION` carries a visibility state (`internal/draft` vs `published`) and the space pins a default version (typically "latest"). Readers can switch only among **visible** versions; this lets teams stage an unreleased version before publishing.
 6. **Packaging / tenancy** — **Single-tenant OSS now, multi-tenant-ready schema.** v1 ships a clean single-tenant self-host (one org per deployment) under a permissive license, but auth/ACL and data-model seams are kept so multi-tenant isolation can be added later **without a breaking migration** (e.g., nullable/implicit `tenant_id` boundaries, scoped queries already centralized).
 7. **Search analytics** — **Deferred** to a later phase. v1 captures page views / popular docs + LLM answer feedback only. The `ANALYTICS_EVENT` schema already supports a `search` event type, so query / zero-result capture can be enabled later without migration.
+
+---
+
+## 17. Test / Demo Host Application
+
+A small, self-contained **host application** ships in the repo to prove the control embeds into an arbitrary web app and to exercise the **full host-issued-token auth flow** end-to-end (decision §16.1). It doubles as living integration documentation and a manual/E2E test fixture.
+
+### 17.1 Composition
+
+- **Static HTML page** (`examples/test-host/public/index.html`) — pure HTML + a little vanilla JS that:
+  - loads the `xdocs.js` bundle and places `<xdocs-viewer>` (and a link to the `<xdocs-master>` page),
+  - sets `base-url`, `space`, `locale`, `theme`, brand logo slot, and theme tokens,
+  - wires `viewer.tokenProvider = () => fetch('/auth/token').then(...)` to obtain a demo JWT,
+  - listens to `xdocs:navigate` / `xdocs:ready` and reflects routing into the URL hash.
+- **Tiny Node mock-IdP** (`examples/test-host/server.js`, ~1 file, minimal deps) that:
+  - serves the static page,
+  - exposes `GET /auth/token` which **mints a short-lived demo JWT** signed with a dev key, carrying the agreed claims (`sub`, `email`, `locale`, roles/scopes, space ACLs, `aud`, `iss`),
+  - publishes a **JWKS** endpoint (`/.well-known/jwks.json`) that the backend is configured to trust — so the real signature-validation path is tested, not bypassed.
+- A simple **role switcher** in the page (reader / editor / admin) to demo ACL-gated behavior and the CMS entry point.
+
+```mermaid
+sequenceDiagram
+  participant B as Browser (test host page)
+  participant H as Mock-IdP (Node)
+  participant V as &lt;xdocs-viewer&gt;
+  participant API as Xdocs FastAPI
+
+  B->>V: mount control, set tokenProvider
+  V->>H: GET /auth/token (role=editor)
+  H-->>V: demo JWT (signed, dev key)
+  V->>API: GET /pages/... (Bearer JWT)
+  API->>H: fetch JWKS (cached), verify signature/claims
+  API-->>V: content (ACL-filtered)
+  V-->>B: rendered docs
+```
+
+### 17.2 What it demonstrates / validates
+
+- Framework-agnostic **embedding** via the Web Component + Shadow DOM style isolation.
+- **Host-issued JWT** flow against the backend's JWKS validation and ACL filtering.
+- **Theming** via CSS tokens + logo slot; **light/dark** switching.
+- **Mobile responsiveness** — used as the device/E2E test surface (Playwright emulated viewports: phone, tablet, desktop) covering the swipe drawer, bottom-sheet TOC, full-screen Ask, and sticky search.
+- Core journeys: browse tree, read page (code/Mermaid/KaTeX/admonitions), search, Ask (RAG + citations), summarize/extract download, and PDF export (incl. "offline" book PDF).
+
+### 17.3 Running
+
+- Brought up by the same **docker-compose** dev stack (backend + Postgres/pgvector + Redis + MinIO) with the test host added as a service; seed data (a sample space/book/pages in multiple locales/versions) is loaded so the demo is immediately usable.
+- `examples/test-host/README.md` documents env vars (backend URL, dev signing key, claims) and how to point it at a local or remote backend.
+
+> Note: the mock-IdP is **for testing/demo only** and must never be used in production; it exists to emulate the host's real IdP so the integration contract is verifiable locally.
 
 ---
 
