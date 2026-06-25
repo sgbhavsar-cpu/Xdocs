@@ -12,7 +12,17 @@ extract" assistant, a full CMS for authoring, multilingual content, and PDF expo
 
 ## Documentation
 
+**Design**
 - 📐 **[Design Document](docs/design/documentation-control-design.md)** — architecture, data model,
-  API surface, components, and a phased delivery plan.
+  API surface, components, decisions, and a phased delivery plan.
 
-> Status: design phase. The design document is the source of truth for planning development.
+**Development**
+- 🛠️ **[Development Plan](docs/development/development-plan.md)** — work breakdown (epics/stories), milestones, environment setup, standards, CI/CD, Definition of Done.
+- 🔌 **[API Specification](docs/development/api-specification.md)** — REST/SSE contract: endpoints, schemas, errors, auth.
+- 🗄️ **[Data Model & Migrations](docs/development/data-model-and-migrations.md)** — tables, indexes, migration order, seed data.
+
+**Testing**
+- ✅ **[Test Plan & Strategy](docs/testing/test-plan.md)** — levels, tooling, environments, quality gates, mobile/security/LLM focus.
+- 🧪 **[Test Case Catalog](docs/testing/test-cases.md)** — detailed scenarios per epic + traceability matrix.
+
+> Status: planning phase. These documents are the source of truth for building Xdocs.
