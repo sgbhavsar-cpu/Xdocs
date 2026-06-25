@@ -56,6 +56,9 @@ The product is comparable in spirit to documentation portals such as **docs.avev
 | Deployment | Docker + Kubernetes |
 | Analytics | Page views / popular docs + LLM answer feedback (👍/👎) |
 | License | Open-source intended (permissive, e.g. Apache-2.0/MIT) |
+| Tenancy | Single-tenant OSS in v1; schema/auth seams kept multi-tenant-ready |
+| Auth token | Host IdP issues JWT directly (no token-exchange endpoint in v1) |
+| LLM models | GPT-4o-class chat + `text-embedding-3-small`; budget guard + rate limits |
 
 ---
 
@@ -199,8 +202,9 @@ Design principles:
 
 ### 3.4 Master Page
 
-`<xdocs-master>` renders the landing/portal page:
-- Cards/sections per **space** (e.g., "SQL Server", "Platform", "API Reference").
+`<xdocs-master>` renders the landing/portal page. **Composition (decision §16.4): data-driven with optional curated blocks** — it works with zero editorial setup but admins can layer in branded content:
+- **Curated blocks (optional)**: admin-managed hero/intro/featured-docs blocks per deployment, rendered above the auto content.
+- Cards/sections per **space** (e.g., "SQL Server", "Platform", "API Reference") — auto-generated from the space list.
 - **Global search** bar (hybrid search) with type-ahead suggestions and result grouping by space/book.
 - Recently updated / popular pages (from analytics).
 - Entry point to the **Ask** (LLM) panel scoped to the whole corpus.
@@ -296,7 +300,7 @@ xdocs-api/
 
 ### 4.3 Authentication & Authorization
 
-- The **host app authenticates** the user and obtains an **Xdocs access token** (a signed JWT — either issued by the host's IdP or by a small token-exchange endpoint Xdocs trusts).
+- The **host app authenticates** the user and the **host's IdP issues a signed JWT directly** (decision §16.1 — Xdocs builds no token-exchange endpoint in v1). Xdocs trusts and validates this token.
 - Backend validates the JWT signature against the configured **JWKS** (cached), checks `iss`/`aud`/`exp`, and maps claims to:
   - **Identity**: `sub`, `email`, `locale`.
   - **Permissions**: roles/scopes such as `reader`, `editor`, `admin`, and optional **space-level ACLs** (`space:sql-server:read`, `space:platform:write`).
@@ -328,6 +332,7 @@ erDiagram
     uuid id PK
     uuid space_id FK
     string label  "e.g. 2019, 2022, latest"
+    string visibility  "internal|published"
     bool is_default
     int sort_order
   }
@@ -402,7 +407,7 @@ Notes:
 - **Content lives in `PAGE_TRANSLATION`** (per page × locale), so multilingual is first-class. The default-locale translation is the canonical source for fallback.
 - **Versioning is two-dimensional**:
   - *Editorial*: `PAGE.status` (draft/published) + `PAGE_REVISION` history per translation (rollback).
-  - *Product*: `PRODUCT_VERSION` lets readers switch between released doc sets (e.g., SQL Server 2019 vs 2022).
+  - *Product*: `PRODUCT_VERSION` lets readers switch between released doc sets (e.g., SQL Server 2019 vs 2022). Each version has a **`visibility` flag** (`internal` vs `published`) and the space **pins a default** version (decision §16.5); readers see only `published` versions and land on the default.
 - **Search units are `DOC_CHUNK`** rows (section-sized) with both a `tsvector` (keyword) and a `vector` embedding (semantic) — enabling hybrid search and precise RAG citations (each chunk carries an `anchor`).
 
 ### 4.5 Rendering & Caching
@@ -450,6 +455,8 @@ Indexing: a GIN index on `ts`, an HNSW/IVFFlat index on `embedding`. Embeddings 
 ### 6.1 Provider Abstraction
 
 A thin `LLMProvider` interface wraps **OpenAI / Azure OpenAI** (chat + embeddings), so keys/endpoints are configurable and other providers can be added later. Configuration via env (`LLM_PROVIDER`, `OPENAI_API_KEY` / Azure endpoint + deployment names).
+
+**Default model tier (decision §16.2):** a **GPT-4o-class chat model** for Ask/summarize/extract and **`text-embedding-3-small`** for embeddings — a balanced quality/cost choice. Model names are env-configurable so a deployment can move to a quality-first (`embedding-3-large` + larger chat) or cost-first (mini) tier. A **monthly budget guard** plus per-user/token **rate limits** (Redis) bound spend (see §6.4).
 
 ### 6.2 Ask (RAG with Citations)
 
@@ -537,7 +544,7 @@ Full editing capability, gated by `editor`/`admin` permissions:
 
 ## 9. Internationalization (i18n)
 
-- **Content**: per-page-per-locale translations (`PAGE_TRANSLATION`). Reader shows a **language switcher**; missing translations fall back to the space's default locale with a "not translated" hint.
+- **Content**: per-page-per-locale translations (`PAGE_TRANSLATION`). Reader shows a **language switcher**. **Missing-translation behavior (decision §16.3):** show the space's default-locale content with a "not translated" notice **and a one-click inline LLM auto-translation** action. Auto-translations are **ephemeral** (cached per page-revision × locale, not stored as managed content); authoritative translations are produced via the CMS review workflow below.
 - **UI strings**: the control loads locale bundles (JSON) for its own chrome (buttons, labels), selected via the `locale` attribute or host preference.
 - **Search & RAG** are locale-aware (query within the active locale, with fallback).
 - **Translation production**: both **human-authored** and **LLM-assisted** (draft → review → approve), per §8.
@@ -549,7 +556,7 @@ Full editing capability, gated by `editor`/`admin` permissions:
 Privacy-conscious, minimal:
 - **Page views / popular docs**: aggregate counts per page/section to power "popular" and "recently updated" on the master page.
 - **LLM answer feedback**: 👍/👎 (+ optional comment) stored per answer with the question hash and scope, for quality tuning.
-- (Search queries / zero-result terms can be added later — schema already supports an `ANALYTICS_EVENT.type`.)
+- **Search analytics (queries / zero-result terms) are deferred** to a later phase (decision §16.7); the `ANALYTICS_EVENT.type` schema already supports a `search` type so it can be enabled without migration.
 - Stored in Postgres; surfaced via simple admin dashboards. No third-party trackers; respects host privacy posture.
 
 ---
@@ -599,6 +606,7 @@ All responses are JSON (Pydantic), documented via FastAPI's auto-generated OpenA
 - **Containers**: `xdocs-api`, `xdocs-worker`, `xdocs-pdf` (Chromium), plus `postgres` (with pgvector), `redis`, and `minio` (or cloud S3) for self-host.
 - **Kubernetes**: Deployments + HPA for API and workers; PVCs/managed services for Postgres; Helm chart for install.
 - **Local dev**: `docker-compose` bringing up the full stack.
+- **Tenancy (decision §16.6)**: v1 is **single-tenant per deployment** (one org). ACL/query layers are centralized and the data model leaves seams (scoped repositories, an implicit tenant boundary) so multi-tenant isolation can be introduced later without a breaking migration.
 - **CI/CD**: lint/test, build images, run Alembic migrations on deploy.
 - **Observability**: structured logging, Prometheus metrics, health/readiness probes, request tracing.
 - **Config**: 12-factor env vars; example `.env` and Helm `values.yaml`.
@@ -678,15 +686,17 @@ xdocs/
 
 ---
 
-## 16. Open Questions / Follow-ups
+## 16. Resolved Decisions
 
-1. **Token issuance**: will hosts issue Xdocs JWTs directly from their IdP, or do we provide a small token-exchange endpoint? (Affects auth setup docs.)
-2. **Embedding/LLM model choices & budget**: which OpenAI/Azure deployments (chat + embedding), and monthly cost ceiling?
-3. **Default locale fallback policy** when a translation is missing — show source language vs. hide page?
-4. **Master page composition** — fully data-driven from spaces, or curated/editorial landing content per deployment?
-5. **Versioning UX** — which versions are visible to readers vs. internal-only; default version per space.
-6. **Self-host vs SaaS packaging** for the open-source release (keys, multi-tenant toggle, quotas).
-7. **Search analytics** — include zero-result query capture in v1 or defer? (Schema already supports it.)
+The initial open questions have been decided as follows (these are now binding for planning):
+
+1. **Token issuance** — **Host IdP issues the JWT directly.** Xdocs does not build a token-exchange endpoint in v1; it only validates host-issued JWTs via JWKS (see §4.3). Integration docs will specify the required claims (`sub`, `email`, `locale`, roles/scopes, space ACLs), `aud`, `iss`, and signing algorithm (RS256/ES256).
+2. **Models & budget** — **Balanced tier:** a GPT-4o-class chat model for RAG/summarize/extract + `text-embedding-3-small` for embeddings, behind the provider abstraction. A configurable **monthly budget guard** and per-user/token **rate limits** (Redis) protect cost. Model names are env-configurable so deployments can move to a quality-first or cost-first tier.
+3. **Missing-translation fallback** — **Show source-language content with inline one-click LLM auto-translation.** When a page lacks the reader's locale, render the default-locale content with a "not translated" notice and an **on-the-fly LLM translation** action. Auto-translations are **ephemeral (not persisted)**; authors can still produce reviewed, stored translations via the CMS workflow (§8). On-demand translation respects the LLM budget/rate limits and is cacheable per (page revision × locale).
+4. **Master page composition** — **Data-driven with optional curated blocks.** The landing page auto-lists spaces/books plus popular & recently-updated sections, and admins may add curated hero/intro/featured blocks per deployment (managed content). Default deployments work with zero editorial setup.
+5. **Version UX** — **Per-version visibility flags + a pinned default.** Each `PRODUCT_VERSION` carries a visibility state (`internal/draft` vs `published`) and the space pins a default version (typically "latest"). Readers can switch only among **visible** versions; this lets teams stage an unreleased version before publishing.
+6. **Packaging / tenancy** — **Single-tenant OSS now, multi-tenant-ready schema.** v1 ships a clean single-tenant self-host (one org per deployment) under a permissive license, but auth/ACL and data-model seams are kept so multi-tenant isolation can be added later **without a breaking migration** (e.g., nullable/implicit `tenant_id` boundaries, scoped queries already centralized).
+7. **Search analytics** — **Deferred** to a later phase. v1 captures page views / popular docs + LLM answer feedback only. The `ANALYTICS_EVENT` schema already supports a `search` event type, so query / zero-result capture can be enabled later without migration.
 
 ---
 
