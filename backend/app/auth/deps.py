@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from typing import Annotated
 
 from fastapi import Depends, Request
@@ -46,7 +47,7 @@ def get_current_user(
 CurrentUser = Annotated[Principal, Depends(get_current_user)]
 
 
-def require_space_permission(required: Permission):
+def require_space_permission(required: Permission) -> Callable[..., Principal]:
     """Dependency factory enforcing a permission on the `space` path/query param."""
 
     def _dep(request: Request, user: CurrentUser) -> Principal:

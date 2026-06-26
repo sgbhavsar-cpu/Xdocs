@@ -17,6 +17,9 @@ dependencies = [
   "redis>=5.0",
   "structlog>=24.1",
   "orjson>=3.10",
+  "markdown-it-py>=3.0",
+  "mdit-py-plugins>=0.4",
+  "nh3>=0.2.18",
 ]
 
 [project.optional-dependencies]
@@ -26,6 +29,7 @@ dev = [
   "pytest-cov>=5.0",
   "ruff>=0.6",
   "mypy>=1.11",
+  "aiosqlite>=0.20",
 ]
 
 [build-system]

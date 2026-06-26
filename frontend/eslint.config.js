@@ -11,8 +11,11 @@ export default [
         HTMLElement: 'readonly',
         CSSStyleSheet: 'readonly',
         ResizeObserver: 'readonly',
+        IntersectionObserver: 'readonly',
         CustomEvent: 'readonly',
         fetch: 'readonly',
+        navigator: 'readonly',
+        setTimeout: 'readonly',
         // Injected by the build (build.mjs define).
         __XDOCS_CSS__: 'readonly',
       },

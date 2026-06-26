@@ -26,11 +26,13 @@ const PUBLIC_DIR = join(__dirname, 'public');
 const { publicKey, privateKey } = await generateKeyPair('RS256');
 const jwk = { ...(await exportJWK(publicKey)), kid: KID, use: 'sig', alg: 'RS256' };
 
-// Demo claim sets per role (roles + per-space scopes) — see API Spec §3.
+// Demo claim sets per role (API Spec §3). reader/editor are scoped to the
+// sql-server space only (so platform stays hidden, demonstrating ACL isolation);
+// admin holds a global role and sees every space.
 const ROLES = {
-  reader: { roles: ['reader'], scopes: ['space:sql-server:read'] },
-  editor: { roles: ['editor'], scopes: ['space:sql-server:write'] },
-  admin: { roles: ['admin'], scopes: ['space:sql-server:admin', 'space:platform:admin'] },
+  reader: { roles: [], scopes: ['space:sql-server:read'] },
+  editor: { roles: [], scopes: ['space:sql-server:write'] },
+  admin: { roles: ['admin'], scopes: [] },
 };
 
 async function issueToken(role) {

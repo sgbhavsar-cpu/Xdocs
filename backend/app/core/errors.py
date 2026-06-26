@@ -7,7 +7,7 @@ from typing import Any
 import structlog
 from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
-from fastapi.responses import ORJSONResponse
+from fastapi.responses import JSONResponse
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 log = structlog.get_logger()
@@ -60,9 +60,9 @@ def _envelope(
 
 def register_error_handlers(app: FastAPI) -> None:
     @app.exception_handler(XdocsError)
-    async def _xdocs(request: Request, exc: XdocsError) -> ORJSONResponse:
+    async def _xdocs(request: Request, exc: XdocsError) -> JSONResponse:
         rid = getattr(request.state, "request_id", "")
-        return ORJSONResponse(
+        return JSONResponse(
             status_code=exc.status_code,
             content=_envelope(
                 code=exc.code, message=exc.message, request_id=rid, details=exc.details
@@ -70,20 +70,20 @@ def register_error_handlers(app: FastAPI) -> None:
         )
 
     @app.exception_handler(StarletteHTTPException)
-    async def _http(request: Request, exc: StarletteHTTPException) -> ORJSONResponse:
+    async def _http(request: Request, exc: StarletteHTTPException) -> JSONResponse:
         rid = getattr(request.state, "request_id", "")
         code = {401: "unauthorized", 403: "forbidden", 404: "not_found"}.get(
             exc.status_code, "http_error"
         )
-        return ORJSONResponse(
+        return JSONResponse(
             status_code=exc.status_code,
             content=_envelope(code=code, message=str(exc.detail), request_id=rid),
         )
 
     @app.exception_handler(RequestValidationError)
-    async def _validation(request: Request, exc: RequestValidationError) -> ORJSONResponse:
+    async def _validation(request: Request, exc: RequestValidationError) -> JSONResponse:
         rid = getattr(request.state, "request_id", "")
-        return ORJSONResponse(
+        return JSONResponse(
             status_code=422,
             content=_envelope(
                 code="validation_error",
@@ -94,10 +94,10 @@ def register_error_handlers(app: FastAPI) -> None:
         )
 
     @app.exception_handler(Exception)
-    async def _unhandled(request: Request, exc: Exception) -> ORJSONResponse:
+    async def _unhandled(request: Request, exc: Exception) -> JSONResponse:
         rid = getattr(request.state, "request_id", "")
         log.error("unhandled_exception", error=str(exc), request_id=rid)
-        return ORJSONResponse(
+        return JSONResponse(
             status_code=500,
             content=_envelope(
                 code="internal_error", message="Internal server error.", request_id=rid

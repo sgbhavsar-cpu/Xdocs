@@ -8,6 +8,14 @@ if (typeof globalThis.ResizeObserver === 'undefined') {
   };
 }
 
+if (typeof globalThis.IntersectionObserver === 'undefined') {
+  globalThis.IntersectionObserver = class {
+    observe() {}
+    unobserve() {}
+    disconnect() {}
+  };
+}
+
 if (typeof window.matchMedia === 'undefined') {
   window.matchMedia = () => ({
     matches: false,

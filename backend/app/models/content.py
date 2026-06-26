@@ -1,0 +1,125 @@
+"""Content model: Spaces -> Versions/Books -> Pages -> Translations -> Revisions.
+
+Types are kept portable (Uuid/JSON/DateTime) so the same models run on Postgres
+in production and SQLite in fast integration tests. The Postgres-specific schema
+(extensions, pgvector) lives in the Alembic migrations.
+"""
+
+from __future__ import annotations
+
+import uuid
+from datetime import UTC, datetime
+
+from sqlalchemy import (
+    JSON,
+    Boolean,
+    DateTime,
+    ForeignKey,
+    Integer,
+    String,
+    Text,
+    UniqueConstraint,
+    Uuid,
+)
+from sqlalchemy.orm import Mapped, mapped_column
+
+from app.core.db import Base
+
+
+def _utcnow() -> datetime:
+    return datetime.now(UTC)
+
+
+class TimestampMixin:
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=_utcnow, onupdate=_utcnow
+    )
+
+
+class Space(Base, TimestampMixin):
+    __tablename__ = "space"
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    # Reserved multi-tenant seam (single-tenant v1, design §16.6).
+    tenant_id: Mapped[uuid.UUID | None] = mapped_column(Uuid, nullable=True)
+    slug: Mapped[str] = mapped_column(String(128), unique=True, index=True)
+    title: Mapped[str] = mapped_column(String(256))
+    description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    default_locale: Mapped[str] = mapped_column(String(16), default="en")
+    landing_blocks: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+
+
+class ProductVersion(Base, TimestampMixin):
+    __tablename__ = "product_version"
+    __table_args__ = (UniqueConstraint("space_id", "label", name="uq_version_space_label"),)
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    space_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("space.id", ondelete="CASCADE"))
+    label: Mapped[str] = mapped_column(String(64))
+    # "internal" | "published" — readers only see published (design §16.5).
+    visibility: Mapped[str] = mapped_column(String(16), default="published")
+    is_default: Mapped[bool] = mapped_column(Boolean, default=False)
+    sort_order: Mapped[int] = mapped_column(Integer, default=0)
+
+
+class Book(Base, TimestampMixin):
+    __tablename__ = "book"
+    __table_args__ = (UniqueConstraint("version_id", "slug", name="uq_book_version_slug"),)
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    space_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("space.id", ondelete="CASCADE"))
+    version_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("product_version.id", ondelete="CASCADE")
+    )
+    slug: Mapped[str] = mapped_column(String(128))
+    title: Mapped[str] = mapped_column(String(256))
+    sort_order: Mapped[int] = mapped_column(Integer, default=0)
+
+
+class Page(Base, TimestampMixin):
+    __tablename__ = "page"
+    __table_args__ = (
+        UniqueConstraint("book_id", "parent_page_id", "slug", name="uq_page_parent_slug"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    book_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("book.id", ondelete="CASCADE"))
+    parent_page_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("page.id", ondelete="CASCADE"), nullable=True
+    )
+    slug: Mapped[str] = mapped_column(String(128))
+    sort_order: Mapped[int] = mapped_column(Integer, default=0)
+    status: Mapped[str] = mapped_column(String(16), default="published")  # draft | published
+
+
+class PageTranslation(Base, TimestampMixin):
+    __tablename__ = "page_translation"
+    __table_args__ = (UniqueConstraint("page_id", "locale", name="uq_translation_page_locale"),)
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    page_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("page.id", ondelete="CASCADE"))
+    locale: Mapped[str] = mapped_column(String(16))
+    title: Mapped[str] = mapped_column(String(512))
+    markdown: Mapped[str] = mapped_column(Text)
+    html_cached: Mapped[str | None] = mapped_column(Text, nullable=True)
+    headings: Mapped[list | None] = mapped_column(JSON, nullable=True)
+    # human | llm_draft | approved
+    translation_status: Mapped[str] = mapped_column(String(16), default="human")
+    revision: Mapped[int] = mapped_column(Integer, default=1)
+    published_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+
+class PageRevision(Base, TimestampMixin):
+    __tablename__ = "page_revision"
+    __table_args__ = (
+        UniqueConstraint("page_translation_id", "revision", name="uq_revision_translation_rev"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    page_translation_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("page_translation.id", ondelete="CASCADE")
+    )
+    revision: Mapped[int] = mapped_column(Integer)
+    markdown: Mapped[str] = mapped_column(Text)
+    author_id: Mapped[uuid.UUID | None] = mapped_column(Uuid, nullable=True)

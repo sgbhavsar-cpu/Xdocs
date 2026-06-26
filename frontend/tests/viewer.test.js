@@ -7,16 +7,27 @@ describe('<xdocs-viewer>', () => {
     expect(customElements.get('xdocs-viewer')).toBe(XdocsViewer);
   });
 
-  it('mounts a shadow root with the three-pane shell (A-07)', () => {
+  it('mounts a shadow root with the three-pane shell (A-07/B-04)', () => {
     const el = document.createElement('xdocs-viewer');
     el.setAttribute('space', 'sql-server');
     document.body.appendChild(el);
 
     expect(el.shadowRoot).toBeTruthy();
-    const text = el.shadowRoot.textContent;
-    expect(text).toContain('Documentation');
+    expect(el.shadowRoot.querySelector('.xd-root')).toBeTruthy();
     expect(el.shadowRoot.querySelector('nav[aria-label="Pages"]')).toBeTruthy();
     expect(el.shadowRoot.querySelector('aside[aria-label="On this page"]')).toBeTruthy();
+    expect(el.shadowRoot.querySelector('input[aria-label="Search"]')).toBeTruthy();
+    expect(el.shadowRoot.querySelector('.xd-hamburger')).toBeTruthy();
+    el.remove();
+  });
+
+  it('toggles the mobile nav drawer via the hamburger', () => {
+    const el = document.createElement('xdocs-viewer');
+    document.body.appendChild(el);
+    const root = el.shadowRoot.querySelector('.xd-root');
+    expect(root.dataset.navOpen).toBe('false');
+    el.shadowRoot.querySelector('.xd-hamburger').click();
+    expect(root.dataset.navOpen).toBe('true');
     el.remove();
   });
 

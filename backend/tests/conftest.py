@@ -8,14 +8,22 @@ signature/claim verification path.
 from __future__ import annotations
 
 import time
-from collections.abc import Callable
+from collections.abc import AsyncIterator, Callable
 from typing import Any
 
 import jwt
 import pytest
+import pytest_asyncio
 from cryptography.hazmat.primitives.asymmetric import rsa
+from httpx import ASGITransport, AsyncClient
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+from sqlalchemy.pool import StaticPool
 
+import app.models  # noqa: F401  (register ORM models on Base.metadata)
 from app.auth.jwt import TokenVerifier
+from app.core.db import Base, get_session
+from app.main import app
+from app.scripts.seed import seed
 
 ISSUER = "https://mock-idp.local"
 AUDIENCE = "xdocs"
@@ -72,3 +80,37 @@ def make_token(rsa_private_key: rsa.RSAPrivateKey) -> Callable[..., str]:
         return jwt.encode(claims, key or rsa_private_key, algorithm="RS256", headers={"kid": kid})
 
     return _make
+
+
+# ---- Content API fixtures (SQLite-backed, seeded) ----
+
+
+@pytest_asyncio.fixture
+async def seeded_client() -> AsyncIterator[tuple[AsyncClient, AsyncSession]]:
+    """An ASGI client + session backed by an in-memory SQLite DB seeded with demo data.
+
+    Content endpoints read through the overridden `get_session`, so both the seed
+    and the requests share one session in a single event loop.
+    """
+    engine = create_async_engine(
+        "sqlite+aiosqlite://",
+        poolclass=StaticPool,
+        connect_args={"check_same_thread": False},
+    )
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
+    maker = async_sessionmaker(engine, expire_on_commit=False)
+
+    async with maker() as session:
+        await seed(session)
+
+        async def _override_session() -> AsyncIterator[AsyncSession]:
+            yield session
+
+        app.dependency_overrides[get_session] = _override_session
+        transport = ASGITransport(app=app)
+        async with AsyncClient(transport=transport, base_url="http://test") as client:
+            yield client, session
+
+    app.dependency_overrides.clear()
+    await engine.dispose()
