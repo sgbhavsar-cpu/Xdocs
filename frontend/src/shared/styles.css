@@ -389,6 +389,14 @@
   color: #fff;
   cursor: pointer;
 }
+.xd-export-btn {
+  padding: 0.3rem 0.7rem;
+  border: 1px solid var(--xdocs-color-border);
+  border-radius: var(--xdocs-radius);
+  background: var(--xdocs-color-bg);
+  color: inherit;
+  cursor: pointer;
+}
 .xd-ask {
   position: absolute;
   top: 48px;

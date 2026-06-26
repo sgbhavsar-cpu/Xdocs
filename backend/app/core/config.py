@@ -36,6 +36,11 @@ class Settings(BaseSettings):
     llm_monthly_token_budget: int = 5_000_000
     artifact_ttl_hours: int = 24
 
+    # PDF export
+    pdf_renderer: str = "mock"  # mock | chromium
+    pdf_chromium_path: str = ""  # optional explicit Chromium executable path
+    export_ttl_hours: int = 24
+
     @property
     def algorithms(self) -> list[str]:
         return [a.strip() for a in self.jwt_algorithms.split(",") if a.strip()]

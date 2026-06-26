@@ -126,6 +126,69 @@ describe('<xdocs-viewer>', () => {
     el.remove();
   });
 
+  it('exports the current page as PDF (E3)', async () => {
+    const el = document.createElement('xdocs-viewer');
+    el.setAttribute('base-url', 'http://api.test');
+    el.setAttribute('space', 'sql-server');
+    const calls = [];
+    globalThis.fetch = async (url) => {
+      calls.push(url);
+      if (url.endsWith('/api/v1/export')) {
+        return {
+          ok: true,
+          json: async () => ({
+            job_id: 'j1',
+            status: 'done',
+            url: '/api/v1/export/j1/download',
+            page_count: 1,
+            expires_at: '2099-01-01T00:00:00Z',
+            error: null,
+          }),
+        };
+      }
+      if (url.includes('/download')) return { ok: true, blob: async () => new Blob(['%PDF']) };
+      let body = {};
+      if (url.includes('/me')) body = { sub: 'u' };
+      else if (url.includes('/tree')) {
+        body = {
+          books: [
+            {
+              id: 'b1',
+              slug: 'guide',
+              title: 'Guide',
+              pages: [{ id: 'p1', slug: 'gs', title: 'GS', has_children: false, children: [] }],
+            },
+          ],
+        };
+      } else if (url.includes('/pages/')) {
+        body = {
+          id: 'p1',
+          slug: 'gs',
+          title: 'GS',
+          space: 'sql-server',
+          book: 'guide',
+          version: { label: '1' },
+          locale: 'en',
+          translation_status: 'human',
+          html: '<h1 id="gs">GS</h1>',
+          headings: [],
+          available_locales: ['en'],
+          fallback: null,
+        };
+      }
+      return { ok: true, json: async () => body };
+    };
+    el.tokenProvider = async () => 'tok';
+    document.body.appendChild(el);
+    await new Promise((r) => setTimeout(r, 80));
+
+    el.shadowRoot.querySelector('.xd-export-btn').click();
+    await new Promise((r) => setTimeout(r, 60));
+    expect(calls.some((u) => u.endsWith('/api/v1/export'))).toBe(true);
+    expect(calls.some((u) => u.includes('/download'))).toBe(true);
+    el.remove();
+  });
+
   it('opens the Ask panel (D3)', () => {
     const el = document.createElement('xdocs-viewer');
     document.body.appendChild(el);

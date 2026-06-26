@@ -7,7 +7,7 @@ import uuid
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api import content, health, llm, me, search
+from app.api import content, export, health, llm, me, search
 from app.core.config import get_settings
 from app.core.errors import register_error_handlers
 from app.core.logging import configure_logging
@@ -49,6 +49,7 @@ def create_app() -> FastAPI:
     app.include_router(content.router, prefix=base)
     app.include_router(search.router, prefix=base)
     app.include_router(llm.router, prefix=base)
+    app.include_router(export.router, prefix=base)
 
     return app
 

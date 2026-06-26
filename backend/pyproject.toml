@@ -20,6 +20,7 @@ dependencies = [
   "markdown-it-py>=3.0",
   "mdit-py-plugins>=0.4",
   "nh3>=0.2.18",
+  "playwright>=1.47",
 ]
 
 [project.optional-dependencies]
@@ -51,6 +52,10 @@ python_version = "3.12"
 warn_unused_ignores = true
 disallow_untyped_defs = true
 plugins = []
+
+[[tool.mypy.overrides]]
+module = ["playwright.*"]
+ignore_missing_imports = true
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"

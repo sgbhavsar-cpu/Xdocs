@@ -140,6 +140,7 @@ class XdocsViewer extends HTMLElement {
             <div class="xd-results" hidden></div>
           </div>
           <button class="xd-ask-btn" aria-label="Ask the docs">🤖 Ask</button>
+          <button class="xd-export-btn" aria-label="Export page as PDF">⤓ PDF</button>
         </header>
         <div class="xd-body">
           <nav class="xd-nav" aria-label="Pages"><p>Loading…</p></nav>
@@ -232,6 +233,31 @@ class XdocsViewer extends HTMLElement {
     this.#shadow.querySelector('.xd-ask-summary').addEventListener('click', () => {
       this.#summarizePage();
     });
+    this.#shadow.querySelector('.xd-export-btn').addEventListener('click', () => {
+      if (this.#currentPageId) {
+        this.#downloadExport({ type: 'page', id: this.#currentPageId }, 'page.pdf').catch(() => {});
+      }
+    });
+  }
+
+  async #downloadExport(scope, filename) {
+    const token = await this.#token();
+    const job = await (
+      await fetch(`${this.baseUrl}/api/v1/export`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ scope, locale: this.locale }),
+      })
+    ).json();
+    if (job.status !== 'done' || !job.url) throw new Error('export failed');
+    const resp = await fetch(`${this.baseUrl}${job.url}`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    const blob = await resp.blob();
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = filename;
+    a.click();
   }
 
   #askScope() {
@@ -344,7 +370,15 @@ class XdocsViewer extends HTMLElement {
       dl.download = 'summary.md';
       dl.textContent = 'Download .md';
       dl.className = 'xd-dl';
-      this.#shadow.querySelector('.xd-ask-cites').replaceChildren(dl);
+      const pdfBtn = document.createElement('button');
+      pdfBtn.className = 'xd-dl';
+      pdfBtn.textContent = 'Download PDF';
+      pdfBtn.addEventListener('click', () => {
+        this.#downloadExport({ type: 'artifact', id: body.artifact_id }, 'summary.pdf').catch(
+          () => {}
+        );
+      });
+      this.#shadow.querySelector('.xd-ask-cites').replaceChildren(dl, pdfBtn);
     } catch (err) {
       answerEl.textContent = `Error: ${err.message}`;
     }

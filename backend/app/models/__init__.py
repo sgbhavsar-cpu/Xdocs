@@ -9,6 +9,7 @@ from app.models.content import (
     ProductVersion,
     Space,
 )
+from app.models.export import ExportJob
 from app.models.llm import AnalyticsEvent, LlmArtifact, TranslationCache
 
 __all__ = [
@@ -22,4 +23,5 @@ __all__ = [
     "LlmArtifact",
     "TranslationCache",
     "AnalyticsEvent",
+    "ExportJob",
 ]

@@ -9,6 +9,9 @@ WORKDIR /app
 # Install dependencies first for better layer caching.
 COPY pyproject.toml ./
 RUN pip install --upgrade pip && pip install -e ".[dev]"
+# Chromium for server-side PDF rendering (Epic E). Default renderer is `mock`;
+# set PDF_RENDERER=chromium to use this.
+RUN playwright install --with-deps chromium
 
 COPY . .
 
