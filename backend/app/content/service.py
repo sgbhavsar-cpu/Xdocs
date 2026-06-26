@@ -206,6 +206,7 @@ async def get_page(
     else:
         html, headings = render_markdown(chosen.markdown)
 
+    etag = f'W/"{page.id}.{chosen.locale}.{chosen.revision}"'
     return {
         "id": page.id,
         "slug": page.slug,
@@ -219,4 +220,5 @@ async def get_page(
         "headings": headings,
         "available_locales": available,
         "fallback": fallback,
+        "etag": etag,
     }

@@ -5,7 +5,7 @@ from __future__ import annotations
 import uuid
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Query, Request, Response
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth.deps import CurrentUser
@@ -41,7 +41,15 @@ async def get_page(
     page_id: uuid.UUID,
     session: Session,
     user: CurrentUser,
+    request: Request,
+    response: Response,
     locale: Annotated[str | None, Query()] = None,
-) -> PageOut:
+) -> PageOut | Response:
     page = await service.get_page(session, page_id, user, locale=locale)
+    etag = page.pop("etag")
+    # Conditional GET: skip the body when the client already has this revision (H3).
+    if request.headers.get("if-none-match") == etag:
+        return Response(status_code=304, headers={"ETag": etag})
+    response.headers["ETag"] = etag
+    response.headers["Cache-Control"] = "private, max-age=30"
     return PageOut.model_validate(page)

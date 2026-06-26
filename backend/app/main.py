@@ -7,7 +7,7 @@ import uuid
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api import admin, content, export, health, llm, me, media, search
+from app.api import admin, analytics, content, export, health, llm, me, media, search
 from app.core.config import get_settings
 from app.core.errors import register_error_handlers
 from app.core.logging import configure_logging
@@ -38,6 +38,10 @@ def create_app() -> FastAPI:
         request.state.request_id = rid
         response = await call_next(request)
         response.headers["X-Request-ID"] = rid
+        # Baseline security headers (H4). CSP/frame policy are left to the host,
+        # since the control is designed to be embedded.
+        response.headers["X-Content-Type-Options"] = "nosniff"
+        response.headers["Referrer-Policy"] = "no-referrer"
         return response
 
     register_error_handlers(app)
@@ -52,6 +56,7 @@ def create_app() -> FastAPI:
     app.include_router(export.router, prefix=base)
     app.include_router(admin.router, prefix=base)
     app.include_router(media.router, prefix=base)
+    app.include_router(analytics.router, prefix=base)
 
     return app
 

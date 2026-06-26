@@ -618,6 +618,7 @@ class XdocsViewer extends HTMLElement {
         version: page.version?.label,
         path: `${this.space}/${page.slug}`,
       });
+      this.#recordView(pageId); // analytics (H1), fire-and-forget
     } catch (err) {
       this.#status(`Failed to load page: ${err.message}`);
       this.#emit('xdocs:error', { code: 'page_failed', message: err.message });
@@ -626,8 +627,24 @@ class XdocsViewer extends HTMLElement {
 
   #highlightNav(pageId) {
     this.#shadow.querySelectorAll('.xd-nav button[data-page]').forEach((b) => {
-      b.classList.toggle('active', b.dataset.page === pageId);
+      const active = b.dataset.page === pageId;
+      b.classList.toggle('active', active);
+      if (active) b.setAttribute('aria-current', 'page');
+      else b.removeAttribute('aria-current');
     });
+  }
+
+  async #recordView(pageId) {
+    try {
+      const token = await this.#token();
+      await fetch(`${this.baseUrl}/api/v1/analytics/pageview`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ page_id: pageId }),
+      });
+    } catch {
+      /* analytics is best-effort */
+    }
   }
 
   #enhanceCode(container) {
