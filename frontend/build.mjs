@@ -42,6 +42,7 @@ async function build() {
   const entries = [
     ['src/viewer/index.js', 'dist/xdocs.js'],
     ['src/master/index.js', 'dist/xdocs-master.js'],
+    ['src/admin/index.js', 'dist/xdocs-admin.js'],
   ];
   const contexts = await Promise.all(
     entries.map(([entry, outfile]) => esbuild.context({ ...common, entryPoints: [entry], outfile }))
@@ -53,7 +54,7 @@ async function build() {
   } else {
     await Promise.all(contexts.map((c) => c.rebuild()));
     await Promise.all(contexts.map((c) => c.dispose()));
-    console.log('[xdocs] built dist/xdocs.js, dist/xdocs-master.js');
+    console.log('[xdocs] built dist/xdocs.js, dist/xdocs-master.js, dist/xdocs-admin.js');
   }
 }
 

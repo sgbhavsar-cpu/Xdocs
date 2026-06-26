@@ -11,6 +11,7 @@ from app.models.content import (
 )
 from app.models.export import ExportJob
 from app.models.llm import AnalyticsEvent, LlmArtifact, TranslationCache
+from app.models.media import MediaAsset
 
 __all__ = [
     "Space",
@@ -24,4 +25,5 @@ __all__ = [
     "TranslationCache",
     "AnalyticsEvent",
     "ExportJob",
+    "MediaAsset",
 ]

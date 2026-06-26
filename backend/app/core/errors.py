@@ -45,6 +45,21 @@ class ConflictError(XdocsError):
     code = "conflict"
 
 
+class RevisionConflictError(XdocsError):
+    status_code = 409
+    code = "revision_conflict"
+
+
+class ValidationError(XdocsError):
+    status_code = 422
+    code = "unprocessable_entity"
+
+
+class PayloadTooLargeError(XdocsError):
+    status_code = 413
+    code = "payload_too_large"
+
+
 class RateLimitedError(XdocsError):
     status_code = 429
     code = "rate_limited"

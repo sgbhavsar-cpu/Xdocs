@@ -69,6 +69,7 @@
           <option value="dark">dark</option>
         </select>
       </label>
+      <button id="adminBtn">Admin</button>
     </div>
 
     <p class="note" id="crumb">Portal — pick a documentation space.</p>
@@ -82,6 +83,10 @@
       <xdocs-viewer id="viewer" base-url="http://localhost:8000" theme="auto" hidden>
         <span slot="logo" style="font-weight: 700; color: #0b5cad">Acme Docs</span>
       </xdocs-viewer>
+
+      <!-- CMS authoring (needs the editor/admin role). -->
+      <xdocs-admin id="admin" base-url="http://localhost:8000" space="sql-server" theme="auto" hidden>
+      </xdocs-admin>
     </div>
     <p class="note">
       The role selector re-issues a demo JWT from the mock IdP (<code>/auth/token</code>); the
@@ -91,14 +96,17 @@
 
     <script type="module" src="/dist/xdocs.js"></script>
     <script type="module" src="/dist/xdocs-master.js"></script>
+    <script type="module" src="/dist/xdocs-admin.js"></script>
     <script>
       const master = document.getElementById('master');
       const viewer = document.getElementById('viewer');
+      const admin = document.getElementById('admin');
       const roleSel = document.getElementById('role');
       const themeSel = document.getElementById('theme');
       const crumb = document.getElementById('crumb');
+      const adminBtn = document.getElementById('adminBtn');
 
-      // Host provides tokens to both controls on demand (host-issued JWT flow, §16.1).
+      // Host provides tokens to all controls on demand (host-issued JWT flow, §16.1).
       const tokenProvider = async () => {
         const resp = await fetch(`/auth/token?role=${roleSel.value}`);
         const { token } = await resp.json();
@@ -106,12 +114,26 @@
       };
       master.tokenProvider = tokenProvider;
       viewer.tokenProvider = tokenProvider;
+      admin.tokenProvider = tokenProvider;
 
       const showPortal = () => {
         viewer.hidden = true;
+        admin.hidden = true;
         master.hidden = false;
         crumb.textContent = 'Portal — pick a documentation space.';
       };
+
+      adminBtn.addEventListener('click', () => {
+        master.hidden = true;
+        viewer.hidden = true;
+        admin.hidden = false;
+        admin.tokenProvider = tokenProvider; // (re)load the tree
+        crumb.innerHTML = `<a href="#" id="back">← Portal</a> &nbsp;/&nbsp; admin (use the editor role)`;
+        document.getElementById('back').addEventListener('click', (ev) => {
+          ev.preventDefault();
+          showPortal();
+        });
+      });
 
       // Open a space from the portal in the reader.
       master.addEventListener('xdocs:open-space', (e) => {

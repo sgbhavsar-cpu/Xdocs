@@ -517,6 +517,138 @@
   border-left: 0;
 }
 
+/* ---- Admin / CMS (F1) ---- */
+.xd-admin {
+  display: grid;
+  grid-template-columns: 240px 1fr 1fr;
+  height: 640px;
+  border: 1px solid var(--xdocs-color-border);
+  border-radius: var(--xdocs-radius);
+  overflow: hidden;
+}
+.xd-admin-tree {
+  border-right: 1px solid var(--xdocs-color-border);
+  overflow-y: auto;
+  padding: 0.5rem;
+  font-size: 0.9rem;
+}
+.xd-admin-main {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border-right: 1px solid var(--xdocs-color-border);
+}
+.xd-admin-bar {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  padding: 0.5rem;
+  border-bottom: 1px solid var(--xdocs-color-border);
+}
+.xd-title-input {
+  flex: 1;
+  padding: 0.3rem 0.5rem;
+  border: 1px solid var(--xdocs-color-border);
+  border-radius: var(--xdocs-radius);
+  background: var(--xdocs-color-bg);
+  color: inherit;
+}
+.xd-admin-bar button {
+  padding: 0.3rem 0.7rem;
+  border: 1px solid var(--xdocs-color-border);
+  border-radius: var(--xdocs-radius);
+  background: var(--xdocs-color-bg);
+  color: inherit;
+  cursor: pointer;
+}
+.xd-admin-bar button.primary {
+  background: var(--xdocs-color-primary);
+  color: #fff;
+  border-color: var(--xdocs-color-primary);
+}
+.xd-editor {
+  flex: 1;
+  width: 100%;
+  border: 0;
+  padding: 0.8rem;
+  resize: none;
+  font-family: ui-monospace, Menlo, monospace;
+  font-size: 0.9rem;
+  background: var(--xdocs-color-bg);
+  color: inherit;
+}
+.xd-preview {
+  overflow-y: auto;
+  padding: 1rem;
+}
+.xd-admin-status {
+  font-size: 0.8rem;
+  color: var(--xdocs-color-muted);
+}
+.xd-admin-book {
+  font-weight: 600;
+  margin: 0.6rem 0 0.2rem;
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+.xd-admin-tree button.page {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.3rem;
+  width: 100%;
+  text-align: left;
+  padding: 0.25rem 0.4rem;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  font: inherit;
+}
+.xd-admin-tree button.page:hover {
+  background: var(--xdocs-color-surface);
+}
+.xd-admin-tree button.page.active {
+  background: color-mix(in srgb, var(--xdocs-color-primary) 14%, transparent);
+}
+.xd-badge {
+  font-size: 0.62rem;
+  padding: 0 0.35rem;
+  border-radius: 4px;
+  text-transform: uppercase;
+}
+.xd-badge.draft {
+  background: #fde68a;
+  color: #92400e;
+}
+.xd-badge.published {
+  background: #bbf7d0;
+  color: #166534;
+}
+.xd-newpage {
+  font-size: 0.72rem;
+  border: 1px solid var(--xdocs-color-border);
+  border-radius: 4px;
+  background: var(--xdocs-color-bg);
+  color: var(--xdocs-color-primary);
+  cursor: pointer;
+}
+.xd-revs {
+  border-top: 1px solid var(--xdocs-color-border);
+  padding: 0.5rem;
+  font-size: 0.8rem;
+  max-height: 130px;
+  overflow-y: auto;
+}
+.xd-revs button {
+  border: 0;
+  background: transparent;
+  color: var(--xdocs-color-primary);
+  cursor: pointer;
+}
+
 /* ---- Master / portal page (B8) ---- */
 .xd-master {
   padding: 1.25rem;

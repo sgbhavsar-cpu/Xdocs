@@ -21,6 +21,7 @@ dependencies = [
   "mdit-py-plugins>=0.4",
   "nh3>=0.2.18",
   "playwright>=1.47",
+  "python-multipart>=0.0.9",
 ]
 
 [project.optional-dependencies]

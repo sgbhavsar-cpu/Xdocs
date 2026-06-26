@@ -87,6 +87,45 @@ async def reindex_all(session: AsyncSession) -> int:
     return total
 
 
+async def reindex_page(session: AsyncSession, page_id: uuid.UUID) -> int:
+    """Rebuild search chunks for a single page (called on publish, F3)."""
+    await session.execute(delete(DocChunk).where(DocChunk.page_id == page_id))
+    page = (await session.execute(select(Page).where(Page.id == page_id))).scalar_one_or_none()
+    if page is None or page.status != "published":
+        return 0
+    book = (await session.execute(select(Book).where(Book.id == page.book_id))).scalar_one()
+    space = (await session.execute(select(Space).where(Space.id == book.space_id))).scalar_one()
+    translations = list(
+        (
+            await session.execute(select(PageTranslation).where(PageTranslation.page_id == page_id))
+        ).scalars()
+    )
+    provider = get_embedding_provider()
+    total = 0
+    for tr in translations:
+        chunks = chunk_markdown(tr.markdown)
+        if not chunks:
+            continue
+        embeddings = await provider.embed([c["content"] for c in chunks])
+        for c, emb in zip(chunks, embeddings, strict=False):
+            session.add(
+                DocChunk(
+                    page_translation_id=tr.id,
+                    page_id=page.id,
+                    space_slug=space.slug,
+                    book_id=book.id,
+                    locale=tr.locale,
+                    page_title=tr.title,
+                    ordinal=c["ordinal"],
+                    content=c["content"],
+                    anchor=c["anchor"],
+                    embedding=emb,
+                )
+            )
+            total += 1
+    return total
+
+
 # ---------------- Query ----------------
 
 
