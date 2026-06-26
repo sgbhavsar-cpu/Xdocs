@@ -29,12 +29,24 @@ extract" assistant, a full CMS for authoring, multilingual content, and PDF expo
 
 ## Quick start
 
+### Option A — VS Code Dev Container (one click, great on Windows)
+
+1. Install [Docker Desktop](https://www.docker.com/products/docker-desktop), [VS Code](https://code.visualstudio.com), and the **Dev Containers** extension.
+2. `git clone https://github.com/sgbhavsar-cpu/Xdocs.git` and open the folder in VS Code.
+3. Run **“Dev Containers: Reopen in Container”** (command palette, `F1`).
+
+The container installs deps, builds the front-end, starts the stack, and seeds demo
+content. When it finishes, open **http://localhost:8080** (API docs at `:8000/docs`).
+To debug the API with breakpoints: `docker compose stop api`, then press `F5`.
+
+### Option B — Docker Compose
+
 ```bash
 cp .env.example .env             # defaults use mock LLM + mock PDF (offline)
 docker compose up --build        # api, postgres(pgvector), redis, minio, test-host
 docker compose run --rm api alembic upgrade head
 docker compose run --rm api python -m app.scripts.seed
-make fe-build                    # build the control bundles
+make fe-build                    # build the control bundles (or: cd frontend && pnpm i && pnpm build)
 open http://localhost:8080       # demo host (portal → viewer → admin)
 ```
 
