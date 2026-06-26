@@ -1,0 +1,19 @@
+# Devcontainer override: adds a `dev` service (where VS Code attaches) onto the
+# main stack. The app/db/cache/storage/test-host all run from ../docker-compose.yml.
+services:
+  dev:
+    image: mcr.microsoft.com/devcontainers/python:1-3.12-bookworm
+    command: sleep infinity
+    volumes:
+      - ..:/workspace:cached
+    environment:
+      DATABASE_URL: postgresql+asyncpg://xdocs:xdocs@postgres:5432/xdocs
+      REDIS_URL: redis://redis:6379/0
+      JWKS_URL: http://test-host:8080/.well-known/jwks.json
+      JWT_ISSUER: https://mock-idp.local
+      JWT_AUDIENCE: xdocs
+      CORS_ALLOWED_ORIGINS: http://localhost:8080
+    depends_on:
+      - postgres
+      - redis
+      - minio
