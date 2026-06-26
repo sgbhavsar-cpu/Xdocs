@@ -1,0 +1,110 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Xdocs — Test Host</title>
+    <style>
+      :root {
+        font-family: ui-sans-serif, system-ui, sans-serif;
+      }
+      body {
+        margin: 0;
+        background: #eef2f7;
+      }
+      .host-bar {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        padding: 0.5rem 1rem;
+        background: #111827;
+        color: #fff;
+      }
+      .host-bar strong {
+        font-weight: 700;
+      }
+      .host-bar select,
+      .host-bar button {
+        padding: 0.25rem 0.5rem;
+        border-radius: 6px;
+        border: 1px solid #374151;
+        background: #1f2937;
+        color: #fff;
+      }
+      .frame {
+        max-width: 1200px;
+        margin: 1rem auto;
+        background: #fff;
+        border-radius: 10px;
+        box-shadow: 0 1px 4px rgba(0, 0, 0, 0.1);
+        overflow: hidden;
+      }
+      .note {
+        max-width: 1200px;
+        margin: 0.5rem auto;
+        color: #6b7280;
+        font-size: 0.85rem;
+        padding: 0 1rem;
+      }
+    </style>
+  </head>
+  <body>
+    <!-- This bar belongs to the HOST app, demonstrating the control embeds in an arbitrary page. -->
+    <div class="host-bar">
+      <strong>Acme App</strong>
+      <span>(host application)</span>
+      <label style="margin-left: auto">
+        Role:
+        <select id="role">
+          <option value="reader">reader</option>
+          <option value="editor">editor</option>
+          <option value="admin">admin</option>
+        </select>
+      </label>
+      <label>
+        Theme:
+        <select id="theme">
+          <option value="auto">auto</option>
+          <option value="light">light</option>
+          <option value="dark">dark</option>
+        </select>
+      </label>
+    </div>
+
+    <div class="frame">
+      <!-- The embeddable Xdocs control. base-url points at the FastAPI backend. -->
+      <xdocs-viewer id="viewer" base-url="http://localhost:8000" space="sql-server" theme="auto">
+        <span slot="logo" style="font-weight: 700; color: #0b5cad">Acme Docs</span>
+      </xdocs-viewer>
+    </div>
+    <p class="note">
+      The role selector re-issues a demo JWT from the mock IdP (<code>/auth/token</code>); the
+      control sends it to the backend (<code>/api/v1/me</code>), which validates it against the
+      mock IdP's JWKS. Watch the status line inside the control.
+    </p>
+
+    <script type="module" src="/dist/xdocs.js"></script>
+    <script>
+      const viewer = document.getElementById('viewer');
+      const roleSel = document.getElementById('role');
+      const themeSel = document.getElementById('theme');
+
+      // Host provides tokens to the control on demand (host-issued JWT flow, §16.1).
+      viewer.tokenProvider = async () => {
+        const resp = await fetch(`/auth/token?role=${roleSel.value}`);
+        const { token } = await resp.json();
+        return token;
+      };
+
+      roleSel.addEventListener('change', () => {
+        // Re-trigger the auth check by re-setting the provider.
+        viewer.tokenProvider = viewer.tokenProvider;
+      });
+      themeSel.addEventListener('change', () => viewer.setAttribute('theme', themeSel.value));
+
+      viewer.addEventListener('xdocs:ready', (e) => console.log('xdocs ready', e.detail));
+      viewer.addEventListener('xdocs:error', (e) => console.warn('xdocs error', e.detail));
+      viewer.addEventListener('xdocs:navigate', (e) => console.log('navigate', e.detail));
+    </script>
+  </body>
+</html>

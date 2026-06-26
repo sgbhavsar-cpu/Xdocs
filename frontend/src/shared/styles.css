@@ -1,0 +1,33 @@
+/* Tailwind entry compiled into the Shadow DOM stylesheet (build.mjs). */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/*
+ * Default theme tokens. Hosts override these via inline style / themeTokens on
+ * the element (design §3.7). `:host` targets the custom element's shadow root.
+ */
+:host {
+  --xdocs-color-bg: #ffffff;
+  --xdocs-color-fg: #1f2937;
+  --xdocs-color-primary: #0b5cad;
+  --xdocs-color-muted: #6b7280;
+  --xdocs-color-border: #e5e7eb;
+  --xdocs-color-surface: #f9fafb;
+  --xdocs-font-sans: ui-sans-serif, system-ui, sans-serif;
+  --xdocs-radius: 8px;
+  display: block;
+  color: var(--xdocs-color-fg);
+  background: var(--xdocs-color-bg);
+  font-family: var(--xdocs-font-sans);
+}
+
+/* Dark theme: applied when host sets theme="dark" (or auto + OS dark). */
+:host([data-theme='dark']) {
+  --xdocs-color-bg: #0f172a;
+  --xdocs-color-fg: #e5e7eb;
+  --xdocs-color-primary: #60a5fa;
+  --xdocs-color-muted: #94a3b8;
+  --xdocs-color-border: #1e293b;
+  --xdocs-color-surface: #111827;
+}

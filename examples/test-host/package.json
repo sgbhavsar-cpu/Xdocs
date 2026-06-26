@@ -1,0 +1,13 @@
+{
+  "name": "xdocs-test-host",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "description": "Demo host app embedding <xdocs-viewer> + a mock IdP that issues JWTs and serves JWKS",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "jose": "^5.9.6"
+  }
+}
