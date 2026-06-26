@@ -268,12 +268,11 @@ class XdocsViewer extends HTMLElement {
       })
     ).json();
     if (job.status !== 'done' || !job.url) throw new Error('export failed');
-    const resp = await fetch(`${this.baseUrl}${job.url}`, {
-      headers: { Authorization: `Bearer ${token}` },
-    });
-    const blob = await resp.blob();
+    // The URL is signed + time-limited, so it downloads without an auth header.
+    const url = `${this.baseUrl}${job.url}`;
+    this.#emit('xdocs:export', { url, filename });
     const a = document.createElement('a');
-    a.href = URL.createObjectURL(blob);
+    a.href = url;
     a.download = filename;
     a.click();
   }

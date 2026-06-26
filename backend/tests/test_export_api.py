@@ -53,6 +53,18 @@ async def test_export_page_then_download(
 
 
 @pytest.mark.asyncio
+async def test_signed_url_required(seeded_client: tuple[AsyncClient, AsyncSession]) -> None:
+    client, session = seeded_client
+    _as()
+    pid = await _page_id(session, "select")
+    body = (await client.post("/api/v1/export", json={"scope": {"type": "page", "id": pid}})).json()
+    # Tampering with the signature is rejected (E-05).
+    bad = body["url"].rsplit("sig=", 1)[0] + "sig=deadbeef"
+    resp = await client.get(bad)
+    assert resp.status_code == 403
+
+
+@pytest.mark.asyncio
 async def test_export_book_page_count(seeded_client: tuple[AsyncClient, AsyncSession]) -> None:
     client, session = seeded_client
     _as()

@@ -121,6 +121,16 @@ class XdocsAdmin extends HTMLElement {
             <button class="xd-approve">Approve</button>
             <span class="xd-admin-status"></span>
           </div>
+          <div class="xd-md-toolbar">
+            <button data-md="bold" title="Bold"><b>B</b></button>
+            <button data-md="italic" title="Italic"><i>I</i></button>
+            <button data-md="h2" title="Heading">H2</button>
+            <button data-md="link" title="Link">🔗</button>
+            <button data-md="code" title="Code">&lt;/&gt;</button>
+            <button data-md="list" title="List">• List</button>
+            <button class="xd-img" title="Insert image">🖼 Image</button>
+            <input type="file" class="xd-file" accept="image/*" hidden />
+          </div>
           <textarea class="xd-editor" aria-label="Markdown" placeholder="Select a page to edit…"></textarea>
           <div class="xd-revs"></div>
         </div>
@@ -129,9 +139,30 @@ class XdocsAdmin extends HTMLElement {
 
     const editor = this.#shadow.querySelector('.xd-editor');
     let timer = null;
-    editor.addEventListener('input', () => {
+    const schedulePreview = () => {
       clearTimeout(timer);
       timer = setTimeout(() => this.#preview(editor.value), 250);
+    };
+    editor.addEventListener('input', schedulePreview);
+    // Tab inserts two spaces instead of moving focus.
+    editor.addEventListener('keydown', (e) => {
+      if (e.key === 'Tab') {
+        e.preventDefault();
+        this.#insertText('  ');
+      }
+    });
+
+    // Markdown toolbar.
+    this.#shadow.querySelectorAll('.xd-md-toolbar button[data-md]').forEach((b) => {
+      b.addEventListener('click', () => {
+        this.#mdAction(b.dataset.md);
+        schedulePreview();
+      });
+    });
+    const fileInput = this.#shadow.querySelector('.xd-file');
+    this.#shadow.querySelector('.xd-img').addEventListener('click', () => fileInput.click());
+    fileInput.addEventListener('change', () => {
+      if (fileInput.files[0]) this.#uploadImage(fileInput.files[0]).then(schedulePreview);
     });
     this.#shadow.querySelector('.xd-save').addEventListener('click', () => this.#save());
     this.#shadow.querySelector('.xd-publish').addEventListener('click', () => this.#publish());
@@ -155,6 +186,55 @@ class XdocsAdmin extends HTMLElement {
   #status(msg) {
     const el = this.#shadow.querySelector('.xd-admin-status');
     if (el) el.textContent = msg;
+  }
+
+  // ---- Editor helpers ----
+
+  #insertText(text) {
+    const ed = this.#shadow.querySelector('.xd-editor');
+    const { selectionStart: s, selectionEnd: e, value } = ed;
+    ed.value = value.slice(0, s) + text + value.slice(e);
+    ed.selectionStart = ed.selectionEnd = s + text.length;
+    ed.focus();
+  }
+
+  #wrapSelection(before, after = before) {
+    const ed = this.#shadow.querySelector('.xd-editor');
+    const { selectionStart: s, selectionEnd: e, value } = ed;
+    const sel = value.slice(s, e) || 'text';
+    ed.value = value.slice(0, s) + before + sel + after + value.slice(e);
+    ed.selectionStart = s + before.length;
+    ed.selectionEnd = s + before.length + sel.length;
+    ed.focus();
+  }
+
+  #mdAction(kind) {
+    if (kind === 'bold') this.#wrapSelection('**');
+    else if (kind === 'italic') this.#wrapSelection('_');
+    else if (kind === 'code') this.#wrapSelection('`');
+    else if (kind === 'h2') this.#insertText('\n## ');
+    else if (kind === 'link') this.#wrapSelection('[', '](https://)');
+    else if (kind === 'list') this.#insertText('\n- ');
+  }
+
+  async #uploadImage(file) {
+    try {
+      const token = await this.#tokenProvider();
+      const form = new FormData();
+      form.append('file', file);
+      form.append('space', this.space);
+      const resp = await fetch(`${this.baseUrl}/api/v1/media`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+        body: form,
+      });
+      if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+      const { url } = await resp.json();
+      this.#insertText(`![${file.name}](${this.baseUrl}${url})`);
+      this.#status('image inserted');
+    } catch (err) {
+      this.#status(`Upload failed: ${err.message}`);
+    }
   }
 
   async #loadTree() {
@@ -184,6 +264,8 @@ class XdocsAdmin extends HTMLElement {
         const btn = document.createElement('button');
         btn.className = 'page';
         btn.dataset.page = p.id;
+        btn.dataset.book = book.id;
+        btn.draggable = true;
         const title = document.createElement('span');
         title.textContent = p.title;
         const badge = document.createElement('span');
@@ -191,8 +273,42 @@ class XdocsAdmin extends HTMLElement {
         badge.textContent = p.status;
         btn.append(title, badge);
         btn.addEventListener('click', () => this.#openPage(p.id));
+        this.#wireDrag(btn, nav);
         nav.appendChild(btn);
       }
+    }
+  }
+
+  #wireDrag(btn, nav) {
+    btn.addEventListener('dragstart', (e) => {
+      e.dataTransfer.setData('text/plain', btn.dataset.page);
+      btn.classList.add('dragging');
+    });
+    btn.addEventListener('dragend', () => btn.classList.remove('dragging'));
+    btn.addEventListener('dragover', (e) => e.preventDefault());
+    btn.addEventListener('drop', (e) => {
+      e.preventDefault();
+      const draggedId = e.dataTransfer.getData('text/plain');
+      const dragged = nav.querySelector(`button.page[data-page="${draggedId}"]`);
+      if (!dragged || dragged === btn || dragged.dataset.book !== btn.dataset.book) return;
+      nav.insertBefore(dragged, btn); // reorder in the DOM, then persist
+      this.#persistOrder(btn.dataset.book, nav);
+    });
+  }
+
+  async #persistOrder(bookId, nav) {
+    const items = [...nav.querySelectorAll(`button.page[data-book="${bookId}"]`)].map((b, i) => ({
+      id: b.dataset.page,
+      sort_order: i,
+    }));
+    try {
+      await this.#api('/admin/pages/reorder', {
+        method: 'POST',
+        body: JSON.stringify({ items }),
+      });
+      this.#status('reordered');
+    } catch (err) {
+      this.#status(`Reorder failed: ${err.message}`);
     }
   }
 

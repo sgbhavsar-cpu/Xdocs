@@ -25,7 +25,10 @@ if (typeof window.matchMedia === 'undefined') {
 }
 
 // Constructable stylesheets (jsdom has no real implementation).
-if (typeof globalThis.CSSStyleSheet === 'undefined' || !globalThis.CSSStyleSheet.prototype.replaceSync) {
+if (
+  typeof globalThis.CSSStyleSheet === 'undefined' ||
+  !globalThis.CSSStyleSheet.prototype.replaceSync
+) {
   globalThis.CSSStyleSheet = class {
     replaceSync() {}
     replace() {

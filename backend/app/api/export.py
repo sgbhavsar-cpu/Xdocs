@@ -5,7 +5,7 @@ from __future__ import annotations
 import uuid
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Response
+from fastapi import APIRouter, Depends, Query, Response
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth.deps import CurrentUser
@@ -33,7 +33,15 @@ async def export_status(job_id: uuid.UUID, session: Session, user: CurrentUser) 
 
 
 @router.get("/export/{job_id}/download")
-async def export_download(job_id: uuid.UUID, session: Session, user: CurrentUser) -> Response:
+async def export_download(
+    job_id: uuid.UUID,
+    session: Session,
+    expires: Annotated[int, Query()],
+    sig: Annotated[str, Query()],
+) -> Response:
+    # Authenticated by the signed URL (no bearer needed), so it works in a new
+    # tab or download manager.
+    service.verify_signature(job_id, expires, sig)
     pdf = await service.get_pdf(session, job_id)
     return Response(
         content=pdf,

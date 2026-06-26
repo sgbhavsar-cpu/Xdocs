@@ -139,14 +139,13 @@ describe('<xdocs-viewer>', () => {
           json: async () => ({
             job_id: 'j1',
             status: 'done',
-            url: '/api/v1/export/j1/download',
+            url: '/api/v1/export/j1/download?expires=9999999999&sig=abc',
             page_count: 1,
             expires_at: '2099-01-01T00:00:00Z',
             error: null,
           }),
         };
       }
-      if (url.includes('/download')) return { ok: true, blob: async () => new Blob(['%PDF']) };
       let body = {};
       if (url.includes('/me')) body = { sub: 'u' };
       else if (url.includes('/tree')) {
@@ -182,10 +181,12 @@ describe('<xdocs-viewer>', () => {
     document.body.appendChild(el);
     await new Promise((r) => setTimeout(r, 80));
 
+    const exported = new Promise((resolve) => el.addEventListener('xdocs:export', resolve));
     el.shadowRoot.querySelector('.xd-export-btn').click();
-    await new Promise((r) => setTimeout(r, 60));
+    const evt = await exported;
     expect(calls.some((u) => u.endsWith('/api/v1/export'))).toBe(true);
-    expect(calls.some((u) => u.includes('/download'))).toBe(true);
+    expect(evt.detail.url).toContain('/export/j1/download');
+    expect(evt.detail.url).toContain('sig=');
     el.remove();
   });
 
@@ -213,7 +214,13 @@ describe('<xdocs-viewer>', () => {
           ],
         };
       } else if (url.includes('/tree')) {
-        body = { space: 'sql-server', version: { label: '2022' }, locale: 'en', locales: ['en', 'fr'], books: [] };
+        body = {
+          space: 'sql-server',
+          version: { label: '2022' },
+          locale: 'en',
+          locales: ['en', 'fr'],
+          books: [],
+        };
       }
       return { ok: true, json: async () => body };
     };
@@ -235,7 +242,9 @@ describe('<xdocs-viewer>', () => {
     const el = document.createElement('xdocs-viewer');
     el.setAttribute('locale', 'fr');
     document.body.appendChild(el);
-    expect(el.shadowRoot.querySelector('.xd-search').getAttribute('placeholder')).toBe('Rechercher…');
+    expect(el.shadowRoot.querySelector('.xd-search').getAttribute('placeholder')).toBe(
+      'Rechercher…'
+    );
     el.remove();
   });
 

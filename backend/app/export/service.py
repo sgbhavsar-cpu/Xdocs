@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import hashlib
+import hmac
 import html as html_lib
 import uuid
 from datetime import UTC, datetime, timedelta
@@ -189,8 +191,29 @@ def _as_uuid(value: str) -> uuid.UUID | None:
         return None
 
 
+def _sign(job_id: uuid.UUID, expires: int) -> str:
+    secret = get_settings().export_signing_secret.encode()
+    msg = f"{job_id}:{expires}".encode()
+    return hmac.new(secret, msg, hashlib.sha256).hexdigest()
+
+
+def verify_signature(job_id: uuid.UUID, expires: int, sig: str) -> None:
+    """Validate a signed download URL (time-limited, tamper-proof)."""
+    if expires < int(datetime.now(UTC).timestamp()):
+        raise ForbiddenError("Download link has expired.")
+    if not hmac.compare_digest(_sign(job_id, expires), sig):
+        raise ForbiddenError("Invalid download signature.")
+
+
 def job_summary(job: ExportJob) -> dict[str, Any]:
-    url = f"/api/v1/export/{job.id}/download" if job.status == "done" else None
+    url = None
+    if job.status == "done":
+        # Signed, time-limited URL usable without an auth header (downloads/new tab).
+        expires = int(
+            (datetime.now(UTC) + timedelta(hours=get_settings().export_ttl_hours)).timestamp()
+        )
+        sig = _sign(job.id, expires)
+        url = f"/api/v1/export/{job.id}/download?expires={expires}&sig={sig}"
     return {
         "job_id": job.id,
         "status": job.status,

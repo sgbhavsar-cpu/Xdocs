@@ -24,6 +24,7 @@ export default [
         URL: 'readonly',
         JSON: 'readonly',
         Error: 'readonly',
+        FormData: 'readonly',
         // Injected by the build (build.mjs define).
         __XDOCS_CSS__: 'readonly',
       },

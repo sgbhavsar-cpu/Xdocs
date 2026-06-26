@@ -40,6 +40,8 @@ class Settings(BaseSettings):
     pdf_renderer: str = "mock"  # mock | chromium
     pdf_chromium_path: str = ""  # optional explicit Chromium executable path
     export_ttl_hours: int = 24
+    # Secret for signing time-limited export download URLs (change in production).
+    export_signing_secret: str = "dev-export-secret-change-me"
 
     @property
     def algorithms(self) -> list[str]:
