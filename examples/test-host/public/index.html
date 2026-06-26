@@ -71,40 +71,76 @@
       </label>
     </div>
 
+    <p class="note" id="crumb">Portal — pick a documentation space.</p>
     <div class="frame">
-      <!-- The embeddable Xdocs control. base-url points at the FastAPI backend. -->
-      <xdocs-viewer id="viewer" base-url="http://localhost:8000" space="sql-server" theme="auto">
+      <!-- Master/portal page: lists spaces the user can read. -->
+      <xdocs-master id="master" base-url="http://localhost:8000" theme="auto">
+        <span slot="logo" style="font-weight: 700; color: #0b5cad">Acme Docs</span>
+      </xdocs-master>
+
+      <!-- Reader control; shown when a space is opened from the portal. -->
+      <xdocs-viewer id="viewer" base-url="http://localhost:8000" theme="auto" hidden>
         <span slot="logo" style="font-weight: 700; color: #0b5cad">Acme Docs</span>
       </xdocs-viewer>
     </div>
     <p class="note">
       The role selector re-issues a demo JWT from the mock IdP (<code>/auth/token</code>); the
-      control sends it to the backend (<code>/api/v1/me</code>), which validates it against the
-      mock IdP's JWKS. Watch the status line inside the control.
+      control sends it to the backend, which validates it against the mock IdP's JWKS. The portal
+      shows only spaces the role may read (try <em>reader</em> vs <em>admin</em>).
     </p>
 
     <script type="module" src="/dist/xdocs.js"></script>
+    <script type="module" src="/dist/xdocs-master.js"></script>
     <script>
+      const master = document.getElementById('master');
       const viewer = document.getElementById('viewer');
       const roleSel = document.getElementById('role');
       const themeSel = document.getElementById('theme');
+      const crumb = document.getElementById('crumb');
 
-      // Host provides tokens to the control on demand (host-issued JWT flow, §16.1).
-      viewer.tokenProvider = async () => {
+      // Host provides tokens to both controls on demand (host-issued JWT flow, §16.1).
+      const tokenProvider = async () => {
         const resp = await fetch(`/auth/token?role=${roleSel.value}`);
         const { token } = await resp.json();
         return token;
       };
+      master.tokenProvider = tokenProvider;
+      viewer.tokenProvider = tokenProvider;
+
+      const showPortal = () => {
+        viewer.hidden = true;
+        master.hidden = false;
+        crumb.textContent = 'Portal — pick a documentation space.';
+      };
+
+      // Open a space from the portal in the reader.
+      master.addEventListener('xdocs:open-space', (e) => {
+        viewer.setAttribute('space', e.detail.slug);
+        master.hidden = true;
+        viewer.hidden = false;
+        crumb.innerHTML = `<a href="#" id="back">← Portal</a> &nbsp;/&nbsp; ${e.detail.slug}`;
+        document.getElementById('back').addEventListener('click', (ev) => {
+          ev.preventDefault();
+          showPortal();
+        });
+      });
+
+      master.addEventListener('xdocs:search', (e) => console.log('search', e.detail));
+      viewer.addEventListener('xdocs:navigate', (e) => console.log('navigate', e.detail));
+      [master, viewer].forEach((el) =>
+        el.addEventListener('xdocs:error', (ev) => console.warn('xdocs error', ev.detail))
+      );
 
       roleSel.addEventListener('change', () => {
-        // Re-trigger the auth check by re-setting the provider.
-        viewer.tokenProvider = viewer.tokenProvider;
+        // Re-issue tokens and reload the currently visible control.
+        master.tokenProvider = tokenProvider;
+        viewer.tokenProvider = tokenProvider;
+        showPortal();
       });
-      themeSel.addEventListener('change', () => viewer.setAttribute('theme', themeSel.value));
-
-      viewer.addEventListener('xdocs:ready', (e) => console.log('xdocs ready', e.detail));
-      viewer.addEventListener('xdocs:error', (e) => console.warn('xdocs error', e.detail));
-      viewer.addEventListener('xdocs:navigate', (e) => console.log('navigate', e.detail));
+      themeSel.addEventListener('change', () => {
+        master.setAttribute('theme', themeSel.value);
+        viewer.setAttribute('theme', themeSel.value);
+      });
     </script>
   </body>
 </html>

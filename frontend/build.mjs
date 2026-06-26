@@ -39,18 +39,21 @@ async function build() {
     define: { __XDOCS_CSS__: JSON.stringify(css) },
   };
 
-  const buildOne = (entry, outfile) =>
-    esbuild.context({ ...common, entryPoints: [entry], outfile });
-
-  const viewer = await buildOne('src/viewer/index.js', 'dist/xdocs.js');
+  const entries = [
+    ['src/viewer/index.js', 'dist/xdocs.js'],
+    ['src/master/index.js', 'dist/xdocs-master.js'],
+  ];
+  const contexts = await Promise.all(
+    entries.map(([entry, outfile]) => esbuild.context({ ...common, entryPoints: [entry], outfile }))
+  );
 
   if (watch) {
-    await viewer.watch();
+    await Promise.all(contexts.map((c) => c.watch()));
     console.log('[xdocs] watching for changes…');
   } else {
-    await viewer.rebuild();
-    await viewer.dispose();
-    console.log('[xdocs] built dist/xdocs.js');
+    await Promise.all(contexts.map((c) => c.rebuild()));
+    await Promise.all(contexts.map((c) => c.dispose()));
+    console.log('[xdocs] built dist/xdocs.js, dist/xdocs-master.js');
   }
 }
 

@@ -11,10 +11,13 @@
  * follow-up (B5); fenced mermaid/math blocks are left intact for that step.
  */
 
+import { highlightCode, renderMath, renderMermaid } from './enhancers.js';
+
 // Replaced at build time with the compiled Tailwind stylesheet (build.mjs).
 const STYLES = __XDOCS_CSS__;
 
 const MOBILE_BREAKPOINT = 768;
+const DEFAULT_CDN = 'https://esm.sh';
 
 class XdocsViewer extends HTMLElement {
   static get observedAttributes() {
@@ -59,10 +62,20 @@ class XdocsViewer extends HTMLElement {
   connectedCallback() {
     this.#applyTheme();
     this.#renderShell();
+    // Re-apply properties set by the host before the element upgraded.
+    this.#upgradeProperty('tokenProvider');
     this.#observeSize();
     this.#ready = true;
     this.#emit('xdocs:ready', { version: '0.0.1' });
     this.#init();
+  }
+
+  #upgradeProperty(prop) {
+    if (Object.prototype.hasOwnProperty.call(this, prop)) {
+      const value = this[prop];
+      delete this[prop];
+      this[prop] = value;
+    }
   }
 
   disconnectedCallback() {
@@ -129,6 +142,11 @@ class XdocsViewer extends HTMLElement {
           <aside class="xd-toc" aria-label="On this page"></aside>
         </div>
         <div class="xd-scrim"></div>
+        <button class="xd-toc-fab" aria-label="On this page" hidden>On this page</button>
+        <div class="xd-sheet" data-open="false" role="dialog" aria-label="On this page">
+          <div class="xd-sheet-handle"></div>
+          <div class="xd-sheet-body"></div>
+        </div>
       </div>`;
 
     const root = this.#shadow.querySelector('.xd-root');
@@ -137,6 +155,10 @@ class XdocsViewer extends HTMLElement {
     });
     this.#shadow.querySelector('.xd-scrim').addEventListener('click', () => {
       root.dataset.navOpen = 'false';
+    });
+    this.#shadow.querySelector('.xd-toc-fab').addEventListener('click', () => {
+      const sheet = this.#shadow.querySelector('.xd-sheet');
+      sheet.dataset.open = String(sheet.dataset.open !== 'true');
     });
   }
 
@@ -220,6 +242,13 @@ class XdocsViewer extends HTMLElement {
       this.#renderToc(page.headings);
       this.#highlightNav(pageId);
       this.#setupScrollSpy();
+      // Progressive enhancement (lazy-loaded, fire-and-forget): page is usable
+      // immediately and upgrades as libraries arrive.
+      const cdn = this.getAttribute('cdn-base') || DEFAULT_CDN;
+      const dark = this.getAttribute('data-theme') === 'dark';
+      highlightCode(content, this.#shadow, cdn);
+      renderMermaid(content, cdn, dark);
+      renderMath(content, this.#shadow, cdn);
       // Close the mobile drawer after navigation.
       this.#shadow.querySelector('.xd-root').dataset.navOpen = 'false';
       this.#emit('xdocs:navigate', {
@@ -261,24 +290,43 @@ class XdocsViewer extends HTMLElement {
     });
   }
 
+  #tocLinksHtml(headings) {
+    return headings
+      .map((h) => `<a href="#${h.id}" class="lvl-${h.level}" data-anchor="${h.id}">${h.text}</a>`)
+      .join('');
+  }
+
+  #onTocClick(e) {
+    const a = e.target.closest('a[data-anchor]');
+    if (!a) return;
+    e.preventDefault();
+    this.#shadow.getElementById(a.dataset.anchor)?.scrollIntoView({
+      behavior: 'smooth',
+      block: 'start',
+    });
+    // Close the mobile bottom sheet after jumping.
+    this.#shadow.querySelector('.xd-sheet').dataset.open = 'false';
+  }
+
   #renderToc(headings) {
     const toc = this.#shadow.querySelector('.xd-toc');
-    if (!headings?.length) {
+    const sheetBody = this.#shadow.querySelector('.xd-sheet-body');
+    const fab = this.#shadow.querySelector('.xd-toc-fab');
+    const has = Boolean(headings?.length);
+    fab.hidden = !has; // CSS still limits the FAB to mobile viewports
+
+    if (!has) {
       toc.innerHTML = '';
+      sheetBody.innerHTML = '';
       return;
     }
-    toc.innerHTML =
-      `<div class="xd-toc-title">On this page</div>` +
-      headings
-        .map((h) => `<a href="#${h.id}" class="lvl-${h.level}" data-anchor="${h.id}">${h.text}</a>`)
-        .join('');
-    toc.querySelectorAll('a[data-anchor]').forEach((a) => {
-      a.addEventListener('click', (e) => {
-        e.preventDefault();
-        const target = this.#shadow.getElementById(a.dataset.anchor);
-        target?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-      });
-    });
+    const links = this.#tocLinksHtml(headings);
+    toc.innerHTML = `<div class="xd-toc-title">On this page</div>${links}`;
+    sheetBody.innerHTML = `<div class="xd-toc-title">On this page</div>${links}`;
+
+    // One delegated handler per region (desktop TOC + mobile sheet).
+    toc.onclick = (e) => this.#onTocClick(e);
+    sheetBody.onclick = (e) => this.#onTocClick(e);
   }
 
   #setupScrollSpy() {

@@ -274,8 +274,105 @@
   display: block;
 }
 
+/* Bottom-sheet "On this page" TOC (mobile, B6) */
+.xd-toc-fab {
+  display: none;
+  position: absolute;
+  right: 1rem;
+  bottom: 1rem;
+  z-index: 15;
+  padding: 0.5rem 0.9rem;
+  border-radius: 999px;
+  border: 1px solid var(--xdocs-color-border);
+  background: var(--xdocs-color-primary);
+  color: #fff;
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+}
+.xd-root[data-mobile='true'] .xd-toc-fab:not([hidden]) {
+  display: inline-flex;
+}
+.xd-sheet {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  max-height: 60%;
+  overflow-y: auto;
+  background: var(--xdocs-color-bg);
+  border-top: 1px solid var(--xdocs-color-border);
+  border-radius: 14px 14px 0 0;
+  transform: translateY(100%);
+  transition: transform 0.2s ease;
+  z-index: 25;
+  padding: 0.5rem 1rem 1rem;
+}
+.xd-sheet[data-open='true'] {
+  transform: translateY(0);
+}
+.xd-sheet-handle {
+  width: 40px;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--xdocs-color-border);
+  margin: 0.4rem auto 0.6rem;
+}
+.xd-mermaid {
+  text-align: center;
+  margin: 1rem 0;
+}
+.xd-mermaid svg {
+  max-width: 100%;
+  height: auto;
+}
+
+/* ---- Master / portal page (B8) ---- */
+.xd-master {
+  padding: 1.25rem;
+}
+.xd-master-head {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+.xd-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 1rem;
+}
+.xd-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  text-align: left;
+  padding: 1rem;
+  border: 1px solid var(--xdocs-color-border);
+  border-radius: var(--xdocs-radius);
+  background: var(--xdocs-color-surface);
+  color: inherit;
+  cursor: pointer;
+  font: inherit;
+}
+.xd-card:hover {
+  border-color: var(--xdocs-color-primary);
+}
+.xd-card-title {
+  font-weight: 600;
+  font-size: 1.05rem;
+}
+.xd-card-desc {
+  color: var(--xdocs-color-muted);
+  font-size: 0.88rem;
+}
+.xd-card-meta {
+  color: var(--xdocs-color-muted);
+  font-size: 0.75rem;
+}
+
 @media (prefers-reduced-motion: reduce) {
-  .xd-nav {
+  .xd-nav,
+  .xd-sheet {
     transition: none;
   }
 }

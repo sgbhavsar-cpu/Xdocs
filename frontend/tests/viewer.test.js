@@ -31,6 +31,16 @@ describe('<xdocs-viewer>', () => {
     el.remove();
   });
 
+  it('toggles the bottom-sheet TOC via the FAB (B6)', () => {
+    const el = document.createElement('xdocs-viewer');
+    document.body.appendChild(el);
+    const sheet = el.shadowRoot.querySelector('.xd-sheet');
+    expect(sheet.dataset.open).toBe('false');
+    el.shadowRoot.querySelector('.xd-toc-fab').click();
+    expect(sheet.dataset.open).toBe('true');
+    el.remove();
+  });
+
   it('emits xdocs:ready on connect', async () => {
     const el = document.createElement('xdocs-viewer');
     const ready = new Promise((resolve) => el.addEventListener('xdocs:ready', resolve));
