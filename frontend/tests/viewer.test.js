@@ -125,4 +125,69 @@ describe('<xdocs-viewer>', () => {
     expect(el.shadowRoot.getElementById('content').textContent).toContain('Creating a table');
     el.remove();
   });
+
+  it('opens the Ask panel (D3)', () => {
+    const el = document.createElement('xdocs-viewer');
+    document.body.appendChild(el);
+    const ask = el.shadowRoot.querySelector('.xd-ask');
+    expect(ask.dataset.open).toBe('false');
+    el.shadowRoot.querySelector('.xd-ask-btn').click();
+    expect(ask.dataset.open).toBe('true');
+    el.remove();
+  });
+
+  it('summarizes the current page into the Ask panel (D4)', async () => {
+    const el = document.createElement('xdocs-viewer');
+    el.setAttribute('base-url', 'http://api.test');
+    el.setAttribute('space', 'sql-server');
+    globalThis.fetch = async (url) => {
+      let body = {};
+      if (url.includes('/me')) body = { sub: 'u' };
+      else if (url.includes('/tree')) {
+        body = {
+          books: [
+            {
+              id: 'b1',
+              slug: 'guide',
+              title: 'Guide',
+              pages: [{ id: 'p1', slug: 'gs', title: 'GS', has_children: false, children: [] }],
+            },
+          ],
+        };
+      } else if (url.includes('/pages/')) {
+        body = {
+          id: 'p1',
+          slug: 'gs',
+          title: 'GS',
+          space: 'sql-server',
+          book: 'guide',
+          version: { label: '1' },
+          locale: 'en',
+          translation_status: 'human',
+          html: '<h1 id="gs">GS</h1>',
+          headings: [],
+          available_locales: ['en'],
+          fallback: null,
+        };
+      } else if (url.includes('/summarize')) {
+        body = {
+          artifact_id: 'a1',
+          kind: 'summary',
+          markdown: '## Summary\n\nhello',
+          download: { md: '/x' },
+          expires_at: '2099-01-01T00:00:00Z',
+        };
+      }
+      return { ok: true, json: async () => body };
+    };
+    el.tokenProvider = async () => 'tok';
+    document.body.appendChild(el);
+    await new Promise((r) => setTimeout(r, 80)); // load first page -> currentPageId
+
+    el.shadowRoot.querySelector('.xd-ask-btn').click();
+    el.shadowRoot.querySelector('.xd-ask-summary').click();
+    await new Promise((r) => setTimeout(r, 60));
+    expect(el.shadowRoot.querySelector('.xd-ask-answer').textContent).toContain('Summary');
+    el.remove();
+  });
 });

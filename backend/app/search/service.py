@@ -134,15 +134,18 @@ def _snippet(content: str, query_tokens: set[str], width: int = 200) -> str:
     return f"{prefix}{safe}{suffix}"
 
 
-async def search(
+async def score_chunks(
     session: AsyncSession,
     user: Principal,
     *,
     q: str,
     scope: str = "corpus",
     locale: str | None = None,
-    limit: int = 20,
-) -> list[dict[str, Any]]:
+) -> list[tuple[float, DocChunk]]:
+    """Hybrid-score ACL/scope-filtered chunks and return them sorted by relevance.
+
+    Shared by keyword search (grouped by page) and RAG retrieval (top-k chunks).
+    """
     allowed = await _readable_spaces(session, user)
     if not allowed or not q.strip():
         return []
@@ -191,10 +194,40 @@ async def search(
             rrf[cid] += 1.0 / (_RRF_K + rank + 1)
 
     by_id = {ch.id: ch for ch in chunks}
+    return sorted(((rrf[cid], by_id[cid]) for cid in rrf), key=lambda x: x[0], reverse=True)
+
+
+async def retrieve(
+    session: AsyncSession,
+    user: Principal,
+    *,
+    q: str,
+    scope: str = "corpus",
+    locale: str | None = None,
+    k: int = 5,
+) -> list[DocChunk]:
+    """Top-k chunks for RAG context (design §6.2)."""
+    scored = await score_chunks(session, user, q=q, scope=scope, locale=locale)
+    return [ch for _, ch in scored[:k]]
+
+
+async def search(
+    session: AsyncSession,
+    user: Principal,
+    *,
+    q: str,
+    scope: str = "corpus",
+    locale: str | None = None,
+    limit: int = 20,
+) -> list[dict[str, Any]]:
+    scored = await score_chunks(session, user, q=q, scope=scope, locale=locale)
+    if not scored:
+        return []
+    query_tokens = set(_tokens(q))
+
     # Group by page, keeping the best-scoring chunk per page.
     best_per_page: dict[uuid.UUID, tuple[float, DocChunk]] = {}
-    for cid, score in rrf.items():
-        ch = by_id[cid]
+    for score, ch in scored:
         cur = best_per_page.get(ch.page_id)
         if cur is None or score > cur[0]:
             best_per_page[ch.page_id] = (score, ch)

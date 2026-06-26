@@ -37,6 +37,10 @@ if (!Element.prototype.scrollIntoView) {
   Element.prototype.scrollIntoView = function () {};
 }
 
+if (typeof URL.createObjectURL === 'undefined') {
+  URL.createObjectURL = () => 'blob:mock';
+}
+
 if (!('adoptedStyleSheets' in ShadowRoot.prototype)) {
   Object.defineProperty(ShadowRoot.prototype, 'adoptedStyleSheets', {
     writable: true,

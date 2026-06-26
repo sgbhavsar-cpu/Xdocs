@@ -45,6 +45,16 @@ class ConflictError(XdocsError):
     code = "conflict"
 
 
+class RateLimitedError(XdocsError):
+    status_code = 429
+    code = "rate_limited"
+
+
+class BudgetExceededError(XdocsError):
+    status_code = 429
+    code = "budget_exceeded"
+
+
 def _envelope(
     *, code: str, message: str, request_id: str, details: dict[str, Any] | None = None
 ) -> dict[str, Any]:

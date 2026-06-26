@@ -32,6 +32,9 @@ class Settings(BaseSettings):
     azure_openai_api_key: str = ""
     llm_embed_model: str = "text-embedding-3-small"
     llm_chat_model: str = "gpt-4o"
+    llm_rate_limit_per_min: int = 60
+    llm_monthly_token_budget: int = 5_000_000
+    artifact_ttl_hours: int = 24
 
     @property
     def algorithms(self) -> list[str]:

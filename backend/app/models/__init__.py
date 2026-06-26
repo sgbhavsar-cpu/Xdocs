@@ -9,6 +9,7 @@ from app.models.content import (
     ProductVersion,
     Space,
 )
+from app.models.llm import AnalyticsEvent, LlmArtifact, TranslationCache
 
 __all__ = [
     "Space",
@@ -18,4 +19,7 @@ __all__ = [
     "PageTranslation",
     "PageRevision",
     "DocChunk",
+    "LlmArtifact",
+    "TranslationCache",
+    "AnalyticsEvent",
 ]

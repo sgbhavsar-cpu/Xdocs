@@ -380,6 +380,135 @@
   height: auto;
 }
 
+/* ---- Ask panel (D3) ---- */
+.xd-ask-btn {
+  padding: 0.3rem 0.7rem;
+  border: 1px solid var(--xdocs-color-border);
+  border-radius: var(--xdocs-radius);
+  background: var(--xdocs-color-primary);
+  color: #fff;
+  cursor: pointer;
+}
+.xd-ask {
+  position: absolute;
+  top: 48px;
+  right: 0;
+  bottom: 0;
+  width: min(420px, 92vw);
+  display: flex;
+  flex-direction: column;
+  background: var(--xdocs-color-bg);
+  border-left: 1px solid var(--xdocs-color-border);
+  box-shadow: -4px 0 16px rgba(0, 0, 0, 0.12);
+  transform: translateX(100%);
+  transition: transform 0.2s ease;
+  z-index: 40;
+}
+.xd-ask[data-open='true'] {
+  transform: translateX(0);
+}
+.xd-ask-head {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.6rem 0.8rem;
+  border-bottom: 1px solid var(--xdocs-color-border);
+}
+.xd-ask-head strong {
+  margin-right: auto;
+}
+.xd-ask-close,
+.xd-ask-scope {
+  border: 1px solid var(--xdocs-color-border);
+  border-radius: var(--xdocs-radius);
+  background: var(--xdocs-color-bg);
+  color: inherit;
+  cursor: pointer;
+  padding: 0.2rem 0.4rem;
+}
+.xd-ask-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 0.8rem;
+}
+.xd-ask-answer {
+  white-space: pre-wrap;
+  line-height: 1.55;
+}
+.xd-cite-label,
+.xd-ask-fb {
+  margin-top: 0.8rem;
+}
+.xd-cite {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 0.35rem 0.4rem;
+  border: 0;
+  border-radius: 6px;
+  background: var(--xdocs-color-surface);
+  color: var(--xdocs-color-primary);
+  cursor: pointer;
+  margin: 0.2rem 0;
+  font: inherit;
+}
+.xd-cite-label {
+  font-weight: 600;
+  color: var(--xdocs-color-muted);
+  font-size: 0.75rem;
+  text-transform: uppercase;
+}
+.xd-fb {
+  font-size: 1.1rem;
+  background: transparent;
+  border: 1px solid var(--xdocs-color-border);
+  border-radius: 6px;
+  cursor: pointer;
+  margin-right: 0.3rem;
+  padding: 0.2rem 0.5rem;
+}
+.xd-ask-summary,
+.xd-dl {
+  display: inline-block;
+  margin-top: 0.3rem;
+  color: var(--xdocs-color-primary);
+  background: transparent;
+  border: 1px solid var(--xdocs-color-border);
+  border-radius: 6px;
+  padding: 0.25rem 0.5rem;
+  cursor: pointer;
+  text-decoration: none;
+  font: inherit;
+}
+.xd-ask-form {
+  display: flex;
+  gap: 0.4rem;
+  padding: 0.7rem 0.8rem;
+  border-top: 1px solid var(--xdocs-color-border);
+}
+.xd-ask-input {
+  flex: 1;
+  padding: 0.4rem 0.6rem;
+  border: 1px solid var(--xdocs-color-border);
+  border-radius: var(--xdocs-radius);
+  background: var(--xdocs-color-bg);
+  color: inherit;
+}
+.xd-ask-form button {
+  padding: 0.4rem 0.8rem;
+  border: 0;
+  border-radius: var(--xdocs-radius);
+  background: var(--xdocs-color-primary);
+  color: #fff;
+  cursor: pointer;
+}
+/* Full-screen Ask on mobile (design §3.2.1). */
+.xd-root[data-mobile='true'] .xd-ask {
+  width: 100%;
+  top: 0;
+  border-left: 0;
+}
+
 /* ---- Master / portal page (B8) ---- */
 .xd-master {
   padding: 1.25rem;

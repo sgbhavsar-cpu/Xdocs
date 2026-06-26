@@ -22,6 +22,7 @@ from sqlalchemy.pool import StaticPool
 import app.models  # noqa: F401  (register ORM models on Base.metadata)
 from app.auth.jwt import TokenVerifier
 from app.core.db import Base, get_session
+from app.llm.guard import LlmGuard, get_llm_guard
 from app.main import app
 from app.scripts.seed import seed
 
@@ -108,6 +109,10 @@ async def seeded_client() -> AsyncIterator[tuple[AsyncClient, AsyncSession]]:
             yield session
 
         app.dependency_overrides[get_session] = _override_session
+        # Fresh, permissive guard per test so rate/budget state doesn't leak.
+        app.dependency_overrides[get_llm_guard] = lambda: LlmGuard(
+            rate_per_min=1000, token_budget=10**9
+        )
         transport = ASGITransport(app=app)
         async with AsyncClient(transport=transport, base_url="http://test") as client:
             yield client, session

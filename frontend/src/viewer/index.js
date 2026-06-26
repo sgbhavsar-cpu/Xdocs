@@ -31,6 +31,7 @@ class XdocsViewer extends HTMLElement {
   #headingObserver;
   #tree = null;
   #currentPageId = null;
+  #answerId = null;
 
   constructor() {
     super();
@@ -138,6 +139,7 @@ class XdocsViewer extends HTMLElement {
             <input class="xd-search" aria-label="Search" placeholder="Search…" />
             <div class="xd-results" hidden></div>
           </div>
+          <button class="xd-ask-btn" aria-label="Ask the docs">🤖 Ask</button>
         </header>
         <div class="xd-body">
           <nav class="xd-nav" aria-label="Pages"><p>Loading…</p></nav>
@@ -153,6 +155,29 @@ class XdocsViewer extends HTMLElement {
         <div class="xd-sheet" data-open="false" role="dialog" aria-label="On this page">
           <div class="xd-sheet-handle"></div>
           <div class="xd-sheet-body"></div>
+        </div>
+        <div class="xd-ask" data-open="false" role="dialog" aria-label="Ask the docs">
+          <div class="xd-ask-head">
+            <strong>Ask the docs</strong>
+            <select class="xd-ask-scope" aria-label="Ask scope">
+              <option value="space">This space</option>
+              <option value="corpus">Everything</option>
+            </select>
+            <button class="xd-ask-close" aria-label="Close">✕</button>
+          </div>
+          <div class="xd-ask-body">
+            <div class="xd-ask-answer" aria-live="polite"></div>
+            <div class="xd-ask-cites"></div>
+            <div class="xd-ask-fb" hidden>
+              <button class="xd-fb" data-r="up" aria-label="Helpful">👍</button>
+              <button class="xd-fb" data-r="down" aria-label="Not helpful">👎</button>
+              <button class="xd-ask-summary">Summarize this page</button>
+            </div>
+          </div>
+          <form class="xd-ask-form">
+            <input class="xd-ask-input" aria-label="Your question" placeholder="Ask a question…" />
+            <button type="submit">Send</button>
+          </form>
         </div>
       </div>`;
 
@@ -187,6 +212,142 @@ class XdocsViewer extends HTMLElement {
         this.#hideResults();
       }
     });
+
+    // Ask panel (D3).
+    const ask = this.#shadow.querySelector('.xd-ask');
+    this.#shadow.querySelector('.xd-ask-btn').addEventListener('click', () => {
+      ask.dataset.open = 'true';
+      this.#shadow.querySelector('.xd-ask-input').focus();
+    });
+    this.#shadow.querySelector('.xd-ask-close').addEventListener('click', () => {
+      ask.dataset.open = 'false';
+    });
+    this.#shadow.querySelector('.xd-ask-form').addEventListener('submit', (e) => {
+      e.preventDefault();
+      this.#ask(this.#shadow.querySelector('.xd-ask-input').value.trim());
+    });
+    ask.querySelectorAll('.xd-fb').forEach((btn) => {
+      btn.addEventListener('click', () => this.#sendFeedback(btn.dataset.r));
+    });
+    this.#shadow.querySelector('.xd-ask-summary').addEventListener('click', () => {
+      this.#summarizePage();
+    });
+  }
+
+  #askScope() {
+    const v = this.#shadow.querySelector('.xd-ask-scope')?.value || 'space';
+    return v === 'corpus' ? 'corpus' : `space:${this.space}`;
+  }
+
+  #parseSseBlock(block) {
+    let event = null;
+    let data = null;
+    for (const line of block.split('\n')) {
+      if (line.startsWith('event: ')) event = line.slice(7);
+      else if (line.startsWith('data: ')) data = JSON.parse(line.slice(6));
+    }
+    return { event, data };
+  }
+
+  async #ask(question) {
+    if (!question) return;
+    const answerEl = this.#shadow.querySelector('.xd-ask-answer');
+    const citesEl = this.#shadow.querySelector('.xd-ask-cites');
+    const fbEl = this.#shadow.querySelector('.xd-ask-fb');
+    answerEl.textContent = '';
+    citesEl.replaceChildren();
+    fbEl.hidden = true;
+    this.#answerId = null;
+    try {
+      const token = await this.#token();
+      const resp = await fetch(`${this.baseUrl}/api/v1/llm/ask`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ question, scope: this.#askScope(), locale: this.locale }),
+      });
+      if (!resp.ok || !resp.body) throw new Error(`HTTP ${resp.status}`);
+      const reader = resp.body.getReader();
+      const decoder = new TextDecoder();
+      let buf = '';
+      for (;;) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buf += decoder.decode(value, { stream: true });
+        let i;
+        while ((i = buf.indexOf('\n\n')) >= 0) {
+          const { event, data } = this.#parseSseBlock(buf.slice(0, i));
+          buf = buf.slice(i + 2);
+          if (event === 'token') answerEl.textContent += data.text;
+          else if (event === 'citations') this.#renderCitations(citesEl, data.items);
+          else if (event === 'done') {
+            this.#answerId = data.answer_id;
+            fbEl.hidden = false;
+          }
+        }
+      }
+    } catch (err) {
+      answerEl.textContent = `Error: ${err.message}`;
+    }
+  }
+
+  #renderCitations(container, items) {
+    container.replaceChildren();
+    if (!items?.length) return;
+    const label = document.createElement('div');
+    label.className = 'xd-cite-label';
+    label.textContent = 'Sources';
+    container.appendChild(label);
+    items.forEach((c, idx) => {
+      const btn = document.createElement('button');
+      btn.className = 'xd-cite';
+      btn.textContent = `[${idx + 1}] ${c.title}`;
+      btn.addEventListener('click', () => {
+        this.#shadow.querySelector('.xd-ask').dataset.open = 'false';
+        this.#loadPage(c.page_id, c.anchor);
+      });
+      container.appendChild(btn);
+    });
+  }
+
+  async #sendFeedback(rating) {
+    if (!this.#answerId) return;
+    try {
+      const token = await this.#token();
+      await fetch(`${this.baseUrl}/api/v1/llm/feedback`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ answer_id: this.#answerId, rating }),
+      });
+      this.#shadow.querySelector('.xd-ask-fb').textContent = 'Thanks for the feedback!';
+    } catch {
+      /* ignore */
+    }
+  }
+
+  async #summarizePage() {
+    if (!this.#currentPageId) return;
+    const answerEl = this.#shadow.querySelector('.xd-ask-answer');
+    answerEl.textContent = 'Summarizing…';
+    try {
+      const token = await this.#token();
+      const resp = await fetch(`${this.baseUrl}/api/v1/llm/summarize`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ target: { type: 'page', id: this.#currentPageId } }),
+      });
+      if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+      const body = await resp.json();
+      answerEl.textContent = body.markdown;
+      const dl = document.createElement('a');
+      const blob = new Blob([body.markdown], { type: 'text/markdown' });
+      dl.href = URL.createObjectURL(blob);
+      dl.download = 'summary.md';
+      dl.textContent = 'Download .md';
+      dl.className = 'xd-dl';
+      this.#shadow.querySelector('.xd-ask-cites').replaceChildren(dl);
+    } catch (err) {
+      answerEl.textContent = `Error: ${err.message}`;
+    }
   }
 
   #hideResults() {

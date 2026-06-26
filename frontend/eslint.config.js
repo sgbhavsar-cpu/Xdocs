@@ -19,6 +19,10 @@ export default [
         clearTimeout: 'readonly',
         encodeURIComponent: 'readonly',
         Date: 'readonly',
+        TextDecoder: 'readonly',
+        Blob: 'readonly',
+        URL: 'readonly',
+        JSON: 'readonly',
         // Injected by the build (build.mjs define).
         __XDOCS_CSS__: 'readonly',
       },
