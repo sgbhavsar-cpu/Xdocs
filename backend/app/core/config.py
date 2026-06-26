@@ -25,6 +25,14 @@ class Settings(BaseSettings):
 
     cors_allowed_origins: str = "http://localhost:8080"
 
+    # LLM / embeddings (default to offline mock; design §16.2).
+    llm_provider: str = "mock"  # mock | openai | azure
+    openai_api_key: str = ""
+    azure_openai_endpoint: str = ""
+    azure_openai_api_key: str = ""
+    llm_embed_model: str = "text-embedding-3-small"
+    llm_chat_model: str = "gpt-4o"
+
     @property
     def algorithms(self) -> list[str]:
         return [a.strip() for a in self.jwt_algorithms.split(",") if a.strip()]

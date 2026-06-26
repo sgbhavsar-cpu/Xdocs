@@ -65,4 +65,64 @@ describe('<xdocs-viewer>', () => {
     expect(status.textContent).toContain('Not configured');
     el.remove();
   });
+
+  it('renders search results and deep-links on click (C4/C5)', async () => {
+    const el = document.createElement('xdocs-viewer');
+    el.setAttribute('base-url', 'http://api.test');
+    el.setAttribute('space', 'sql-server');
+    globalThis.fetch = async (url) => {
+      let body = {};
+      if (url.includes('/search')) {
+        body = {
+          results: [
+            {
+              page_id: 'p1',
+              title: 'SELECT INTO',
+              space: 'sql-server',
+              book_id: 'b1',
+              locale: 'en',
+              best_anchor: 'creating-a-table',
+              snippet: 'use <em>select</em> into',
+            },
+          ],
+        };
+      } else if (url.includes('/me')) body = { sub: 'u' };
+      else if (url.includes('/tree')) body = { books: [] };
+      else if (url.includes('/pages/')) {
+        body = {
+          id: 'p1',
+          slug: 'select-into',
+          title: 'SELECT INTO',
+          space: 'sql-server',
+          book: 't-sql',
+          version: { label: '2022' },
+          locale: 'en',
+          translation_status: 'human',
+          html: '<h1 id="select-into">SELECT INTO</h1><h2 id="creating-a-table">Creating a table</h2>',
+          headings: [{ level: 2, id: 'creating-a-table', text: 'Creating a table' }],
+          available_locales: ['en'],
+          fallback: null,
+        };
+      }
+      return { ok: true, json: async () => body };
+    };
+    el.tokenProvider = async () => 'tok';
+    document.body.appendChild(el);
+    await new Promise((r) => setTimeout(r, 50));
+
+    const input = el.shadowRoot.querySelector('.xd-search');
+    input.value = 'select';
+    input.dispatchEvent(new Event('input'));
+    await new Promise((r) => setTimeout(r, 300)); // debounce + fetch
+
+    const results = el.shadowRoot.querySelectorAll('.xd-result');
+    expect(results.length).toBe(1);
+    expect(el.shadowRoot.querySelector('.xd-result-title').textContent).toBe('SELECT INTO');
+    expect(el.shadowRoot.querySelector('.xd-result-snip').innerHTML).toContain('<em>');
+
+    results[0].click();
+    await new Promise((r) => setTimeout(r, 50));
+    expect(el.shadowRoot.getElementById('content').textContent).toContain('Creating a table');
+    el.remove();
+  });
 });

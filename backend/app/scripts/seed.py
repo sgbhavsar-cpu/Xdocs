@@ -16,6 +16,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.content.render import render_markdown
 from app.core.db import SessionLocal
 from app.models.content import Book, Page, PageTranslation, ProductVersion, Space
+from app.search.service import reindex_all
 
 _NOW = datetime(2026, 6, 1, tzinfo=UTC)
 
@@ -199,7 +200,11 @@ async def seed(session: AsyncSession) -> None:
         t.page_id = ppage.id
         session.add(t)
 
+    await session.flush()
+    # Build the search index from the seeded content (C1/C2).
+    count = await reindex_all(session)
     await session.commit()
+    print(f"[seed] indexed {count} chunks.")
 
 
 async def main() -> None:

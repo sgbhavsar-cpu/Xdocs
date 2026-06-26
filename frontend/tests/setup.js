@@ -33,6 +33,10 @@ if (typeof globalThis.CSSStyleSheet === 'undefined' || !globalThis.CSSStyleSheet
     }
   };
 }
+if (!Element.prototype.scrollIntoView) {
+  Element.prototype.scrollIntoView = function () {};
+}
+
 if (!('adoptedStyleSheets' in ShadowRoot.prototype)) {
   Object.defineProperty(ShadowRoot.prototype, 'adoptedStyleSheets', {
     writable: true,

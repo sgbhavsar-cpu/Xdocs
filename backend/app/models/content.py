@@ -110,6 +110,30 @@ class PageTranslation(Base, TimestampMixin):
     published_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
 
+class DocChunk(Base, TimestampMixin):
+    """Search/RAG unit (C1). Denormalizes space/book/page/locale/title so search
+    can filter by scope/ACL and group results without multi-table joins. The
+    embedding is stored portably as JSON; on Postgres a GIN index on a tsvector of
+    `content` accelerates keyword search (migration 0003). The pgvector/HNSW path
+    is the documented scale-out (design §5)."""
+
+    __tablename__ = "doc_chunk"
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    page_translation_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("page_translation.id", ondelete="CASCADE")
+    )
+    page_id: Mapped[uuid.UUID] = mapped_column(Uuid, index=True)
+    space_slug: Mapped[str] = mapped_column(String(128), index=True)
+    book_id: Mapped[uuid.UUID] = mapped_column(Uuid, index=True)
+    locale: Mapped[str] = mapped_column(String(16))
+    page_title: Mapped[str] = mapped_column(String(512))
+    ordinal: Mapped[int] = mapped_column(Integer)
+    content: Mapped[str] = mapped_column(Text)
+    anchor: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    embedding: Mapped[list | None] = mapped_column(JSON, nullable=True)
+
+
 class PageRevision(Base, TimestampMixin):
     __tablename__ = "page_revision"
     __table_args__ = (

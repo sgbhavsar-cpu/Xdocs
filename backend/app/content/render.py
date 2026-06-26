@@ -8,11 +8,12 @@ client-side by the viewer (design §3.5).
 
 from __future__ import annotations
 
-import re
 from typing import Any
 
 import nh3
 from markdown_it import MarkdownIt
+
+from app.content.slug import slugify
 
 _HEADING_LEVELS = {"h2": 2, "h3": 3, "h4": 4}
 
@@ -71,17 +72,6 @@ _md = MarkdownIt("commonmark", {"html": False, "linkify": True, "typographer": T
 )
 
 
-def _slugify(text: str, used: set[str]) -> str:
-    base = re.sub(r"[^a-z0-9]+", "-", text.strip().lower()).strip("-") or "section"
-    slug = base
-    i = 1
-    while slug in used:
-        i += 1
-        slug = f"{base}-{i}"
-    used.add(slug)
-    return slug
-
-
 def render_markdown(text: str) -> tuple[str, list[dict[str, Any]]]:
     """Return (sanitized_html, headings) where headings is the H2–H4 outline."""
     tokens = _md.parse(text)
@@ -92,7 +82,7 @@ def render_markdown(text: str) -> tuple[str, list[dict[str, Any]]]:
         if tok.type == "heading_open":
             inline = tokens[idx + 1] if idx + 1 < len(tokens) else None
             title = inline.content if inline is not None else ""
-            slug = _slugify(title, used_ids)
+            slug = slugify(title, used_ids)
             tok.attrSet("id", slug)
             level = _HEADING_LEVELS.get(tok.tag)
             if level is not None:

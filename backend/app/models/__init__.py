@@ -2,6 +2,7 @@
 
 from app.models.content import (
     Book,
+    DocChunk,
     Page,
     PageRevision,
     PageTranslation,
@@ -16,4 +17,5 @@ __all__ = [
     "Page",
     "PageTranslation",
     "PageRevision",
+    "DocChunk",
 ]

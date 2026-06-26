@@ -16,6 +16,8 @@ export default [
         fetch: 'readonly',
         navigator: 'readonly',
         setTimeout: 'readonly',
+        clearTimeout: 'readonly',
+        encodeURIComponent: 'readonly',
         Date: 'readonly',
         // Injected by the build (build.mjs define).
         __XDOCS_CSS__: 'readonly',

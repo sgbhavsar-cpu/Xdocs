@@ -130,7 +130,14 @@ class XdocsViewer extends HTMLElement {
         <header class="xd-header">
           <button class="xd-hamburger" aria-label="Toggle navigation">☰</button>
           <slot name="logo"><strong style="color:var(--xdocs-color-primary)">Xdocs</strong></slot>
-          <input class="xd-search" aria-label="Search" placeholder="Search…" />
+          <div class="xd-search-wrap">
+            <select class="xd-scope" aria-label="Search scope">
+              <option value="space">This space</option>
+              <option value="corpus">Everything</option>
+            </select>
+            <input class="xd-search" aria-label="Search" placeholder="Search…" />
+            <div class="xd-results" hidden></div>
+          </div>
         </header>
         <div class="xd-body">
           <nav class="xd-nav" aria-label="Pages"><p>Loading…</p></nav>
@@ -160,6 +167,84 @@ class XdocsViewer extends HTMLElement {
       const sheet = this.#shadow.querySelector('.xd-sheet');
       sheet.dataset.open = String(sheet.dataset.open !== 'true');
     });
+
+    // Live search (debounced) + scope selector (C4/C5).
+    const input = this.#shadow.querySelector('.xd-search');
+    const scope = this.#shadow.querySelector('.xd-scope');
+    let timer = null;
+    const trigger = () => {
+      clearTimeout(timer);
+      timer = setTimeout(() => this.#runSearch(input.value.trim()), 200);
+    };
+    input.addEventListener('input', trigger);
+    scope.addEventListener('change', trigger);
+    input.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') this.#hideResults();
+    });
+    // Dismiss results when focus leaves the search area.
+    this.#shadow.addEventListener('click', (e) => {
+      if (!e.composedPath().includes(this.#shadow.querySelector('.xd-search-wrap'))) {
+        this.#hideResults();
+      }
+    });
+  }
+
+  #hideResults() {
+    const panel = this.#shadow.querySelector('.xd-results');
+    if (panel) panel.hidden = true;
+  }
+
+  #scopeValue() {
+    const scope = this.#shadow.querySelector('.xd-scope')?.value || 'space';
+    return scope === 'corpus' ? 'corpus' : `space:${this.space}`;
+  }
+
+  async #runSearch(query) {
+    const panel = this.#shadow.querySelector('.xd-results');
+    if (!query || query.length < 2) {
+      this.#hideResults();
+      return;
+    }
+    try {
+      const scope = encodeURIComponent(this.#scopeValue());
+      const data = await this.#api(`/search?q=${encodeURIComponent(query)}&scope=${scope}`);
+      this.#renderResults(panel, data.results || []);
+      this.#emit('xdocs:search', { query, scope: this.#scopeValue() });
+    } catch {
+      this.#hideResults();
+    }
+  }
+
+  #renderResults(panel, results) {
+    panel.replaceChildren();
+    if (!results.length) {
+      const empty = document.createElement('div');
+      empty.className = 'xd-results-empty';
+      empty.textContent = 'No results';
+      panel.appendChild(empty);
+      panel.hidden = false;
+      return;
+    }
+    for (const r of results) {
+      const item = document.createElement('button');
+      item.className = 'xd-result';
+      const title = document.createElement('span');
+      title.className = 'xd-result-title';
+      title.textContent = r.title; // plain text (safe)
+      const snip = document.createElement('span');
+      snip.className = 'xd-result-snip';
+      snip.innerHTML = r.snippet; // server-escaped, only <em> markup
+      const meta = document.createElement('span');
+      meta.className = 'xd-result-meta';
+      meta.textContent = r.space;
+      item.append(title, snip, meta);
+      item.addEventListener('click', () => {
+        this.#hideResults();
+        this.#loadPage(r.page_id, r.best_anchor);
+      });
+      panel.appendChild(item);
+    }
+    panel.hidden = false;
   }
 
   #status(msg) {
@@ -227,7 +312,7 @@ class XdocsViewer extends HTMLElement {
     });
   }
 
-  async #loadPage(pageId) {
+  async #loadPage(pageId, anchor = null) {
     try {
       const page = await this.#api(`/pages/${pageId}?locale=${this.locale}`);
       this.#currentPageId = pageId;
@@ -251,6 +336,10 @@ class XdocsViewer extends HTMLElement {
       renderMath(content, this.#shadow, cdn);
       // Close the mobile drawer after navigation.
       this.#shadow.querySelector('.xd-root').dataset.navOpen = 'false';
+      // Deep-link to a section (e.g. from a search result).
+      if (anchor) {
+        this.#shadow.getElementById(anchor)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
       this.#emit('xdocs:navigate', {
         page_id: pageId,
         space: this.space,
