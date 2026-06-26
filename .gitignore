@@ -25,5 +25,11 @@ examples/test-host/public/dist/
 # OS / editor
 .DS_Store
 .idea/
-.vscode/
 *.swp
+
+# Keep shared VS Code workspace config, ignore user-local overrides.
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
