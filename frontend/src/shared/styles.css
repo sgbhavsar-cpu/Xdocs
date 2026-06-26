@@ -1,0 +1,727 @@
+/* Tailwind entry compiled into the Shadow DOM stylesheet (build.mjs). */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/*
+ * Default theme tokens. Hosts override these via inline style / themeTokens on
+ * the element (design §3.7). `:host` targets the custom element's shadow root.
+ */
+:host {
+  --xdocs-color-bg: #ffffff;
+  --xdocs-color-fg: #1f2937;
+  --xdocs-color-primary: #0b5cad;
+  --xdocs-color-muted: #6b7280;
+  --xdocs-color-border: #e5e7eb;
+  --xdocs-color-surface: #f9fafb;
+  --xdocs-font-sans: ui-sans-serif, system-ui, sans-serif;
+  --xdocs-radius: 8px;
+  display: block;
+  color: var(--xdocs-color-fg);
+  background: var(--xdocs-color-bg);
+  font-family: var(--xdocs-font-sans);
+}
+
+:host([data-theme='dark']) {
+  --xdocs-color-bg: #0f172a;
+  --xdocs-color-fg: #e5e7eb;
+  --xdocs-color-primary: #60a5fa;
+  --xdocs-color-muted: #94a3b8;
+  --xdocs-color-border: #1e293b;
+  --xdocs-color-surface: #111827;
+}
+
+/* ---- Layout (three-pane shell; responsive via [data-mobile]) ---- */
+.xd-root {
+  display: flex;
+  flex-direction: column;
+  height: 640px;
+  border: 1px solid var(--xdocs-color-border);
+  border-radius: var(--xdocs-radius);
+  overflow: hidden;
+  position: relative;
+}
+.xd-header {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0 1rem;
+  height: 48px;
+  border-bottom: 1px solid var(--xdocs-color-border);
+  background: var(--xdocs-color-surface);
+  flex: none;
+}
+.xd-search-wrap {
+  margin-left: auto;
+  display: flex;
+  gap: 0.4rem;
+  position: relative;
+}
+.xd-scope,
+.xd-search,
+.xd-version,
+.xd-lang {
+  padding: 0.3rem 0.6rem;
+  border: 1px solid var(--xdocs-color-border);
+  border-radius: var(--xdocs-radius);
+  background: var(--xdocs-color-bg);
+  color: inherit;
+}
+.xd-search {
+  min-width: 8rem;
+}
+.xd-results {
+  position: absolute;
+  top: 115%;
+  right: 0;
+  width: min(420px, 80vw);
+  max-height: 360px;
+  overflow-y: auto;
+  background: var(--xdocs-color-bg);
+  border: 1px solid var(--xdocs-color-border);
+  border-radius: var(--xdocs-radius);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.15);
+  z-index: 30;
+}
+.xd-result {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 0.5rem 0.7rem;
+  border: 0;
+  border-bottom: 1px solid var(--xdocs-color-border);
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  font: inherit;
+}
+.xd-result:hover {
+  background: var(--xdocs-color-surface);
+}
+.xd-result-title {
+  font-weight: 600;
+  display: block;
+}
+.xd-result-snip {
+  color: var(--xdocs-color-muted);
+  font-size: 0.82rem;
+  display: block;
+}
+.xd-result-meta {
+  color: var(--xdocs-color-muted);
+  font-size: 0.72rem;
+}
+.xd-results-empty {
+  padding: 0.6rem 0.7rem;
+  color: var(--xdocs-color-muted);
+  font-size: 0.85rem;
+}
+.xd-hamburger {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border: 1px solid var(--xdocs-color-border);
+  border-radius: var(--xdocs-radius);
+  background: var(--xdocs-color-bg);
+  cursor: pointer;
+}
+.xd-body {
+  display: grid;
+  grid-template-columns: 260px 1fr 240px;
+  flex: 1;
+  min-height: 0;
+}
+.xd-nav,
+.xd-main,
+.xd-toc {
+  overflow-y: auto;
+  min-height: 0;
+}
+.xd-nav {
+  border-right: 1px solid var(--xdocs-color-border);
+  padding: 0.75rem;
+  font-size: 0.9rem;
+}
+.xd-toc {
+  border-left: 1px solid var(--xdocs-color-border);
+  padding: 0.75rem;
+  font-size: 0.85rem;
+}
+.xd-main {
+  padding: 1.5rem 2rem;
+}
+
+/* Nav tree */
+.xd-nav ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.xd-nav li {
+  margin: 0.1rem 0;
+}
+.xd-nav .xd-book {
+  font-weight: 600;
+  margin: 0.6rem 0 0.2rem;
+  color: var(--xdocs-color-muted);
+  text-transform: uppercase;
+  font-size: 0.72rem;
+  letter-spacing: 0.04em;
+}
+.xd-nav button {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 0.3rem 0.5rem;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  font: inherit;
+}
+.xd-nav button:hover {
+  background: var(--xdocs-color-surface);
+}
+.xd-nav button.active {
+  background: color-mix(in srgb, var(--xdocs-color-primary) 14%, transparent);
+  color: var(--xdocs-color-primary);
+  font-weight: 600;
+}
+.xd-nav .xd-children {
+  margin-left: 0.75rem;
+  border-left: 1px solid var(--xdocs-color-border);
+  padding-left: 0.25rem;
+}
+
+/* TOC */
+.xd-toc-title {
+  font-weight: 600;
+  color: var(--xdocs-color-muted);
+  text-transform: uppercase;
+  font-size: 0.72rem;
+  letter-spacing: 0.04em;
+  margin-bottom: 0.4rem;
+}
+.xd-toc a {
+  display: block;
+  padding: 0.15rem 0;
+  color: var(--xdocs-color-muted);
+  text-decoration: none;
+}
+.xd-toc a.lvl-3 {
+  padding-left: 0.75rem;
+}
+.xd-toc a.lvl-4 {
+  padding-left: 1.5rem;
+}
+.xd-toc a.active {
+  color: var(--xdocs-color-primary);
+  font-weight: 600;
+}
+
+/* Rendered markdown typography (Tailwind preflight strips defaults). */
+.xd-content h1 {
+  font-size: 1.8rem;
+  font-weight: 700;
+  margin: 0 0 0.75rem;
+}
+.xd-content h2 {
+  font-size: 1.35rem;
+  font-weight: 600;
+  margin: 1.6rem 0 0.6rem;
+  scroll-margin-top: 1rem;
+}
+.xd-content h3 {
+  font-size: 1.1rem;
+  font-weight: 600;
+  margin: 1.2rem 0 0.4rem;
+  scroll-margin-top: 1rem;
+}
+.xd-content p {
+  margin: 0.6rem 0;
+  line-height: 1.65;
+}
+.xd-content ul,
+.xd-content ol {
+  margin: 0.6rem 0;
+  padding-left: 1.4rem;
+}
+.xd-content code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.88em;
+  background: var(--xdocs-color-surface);
+  padding: 0.1rem 0.3rem;
+  border-radius: 4px;
+}
+.xd-content pre {
+  position: relative;
+  background: var(--xdocs-color-surface);
+  border: 1px solid var(--xdocs-color-border);
+  border-radius: var(--xdocs-radius);
+  padding: 0.85rem 1rem;
+  overflow-x: auto; /* mobile code scroll (B6) */
+}
+.xd-content pre code {
+  background: none;
+  padding: 0;
+}
+.xd-content table {
+  border-collapse: collapse;
+  width: 100%;
+  margin: 0.8rem 0;
+  display: block;
+  overflow-x: auto; /* wide-table scroll (B6) */
+}
+.xd-content th,
+.xd-content td {
+  border: 1px solid var(--xdocs-color-border);
+  padding: 0.4rem 0.6rem;
+  text-align: left;
+}
+.xd-copy {
+  position: absolute;
+  top: 0.4rem;
+  right: 0.4rem;
+  font-size: 0.72rem;
+  padding: 0.15rem 0.4rem;
+  border: 1px solid var(--xdocs-color-border);
+  border-radius: 5px;
+  background: var(--xdocs-color-bg);
+  color: var(--xdocs-color-muted);
+  cursor: pointer;
+}
+
+/* ---- Mobile (container-width driven, set by ResizeObserver) ---- */
+.xd-root[data-mobile='true'] .xd-hamburger {
+  display: inline-flex;
+}
+.xd-root[data-mobile='true'] .xd-body {
+  grid-template-columns: 1fr;
+}
+.xd-root[data-mobile='true'] .xd-toc {
+  display: none;
+}
+.xd-root[data-mobile='true'] .xd-nav {
+  position: absolute;
+  top: 48px;
+  left: 0;
+  bottom: 0;
+  width: 280px;
+  background: var(--xdocs-color-bg);
+  z-index: 20;
+  transform: translateX(-100%);
+  transition: transform 0.2s ease;
+  box-shadow: 2px 0 8px rgba(0, 0, 0, 0.12);
+}
+.xd-root[data-mobile='true'][data-nav-open='true'] .xd-nav {
+  transform: translateX(0);
+}
+.xd-scrim {
+  display: none;
+  position: absolute;
+  inset: 48px 0 0 0;
+  background: rgba(0, 0, 0, 0.35);
+  z-index: 10;
+}
+.xd-root[data-mobile='true'][data-nav-open='true'] .xd-scrim {
+  display: block;
+}
+
+/* Bottom-sheet "On this page" TOC (mobile, B6) */
+.xd-toc-fab {
+  display: none;
+  position: absolute;
+  right: 1rem;
+  bottom: 1rem;
+  z-index: 15;
+  padding: 0.5rem 0.9rem;
+  border-radius: 999px;
+  border: 1px solid var(--xdocs-color-border);
+  background: var(--xdocs-color-primary);
+  color: #fff;
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+}
+.xd-root[data-mobile='true'] .xd-toc-fab:not([hidden]) {
+  display: inline-flex;
+}
+.xd-sheet {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  max-height: 60%;
+  overflow-y: auto;
+  background: var(--xdocs-color-bg);
+  border-top: 1px solid var(--xdocs-color-border);
+  border-radius: 14px 14px 0 0;
+  transform: translateY(100%);
+  transition: transform 0.2s ease;
+  z-index: 25;
+  padding: 0.5rem 1rem 1rem;
+}
+.xd-sheet[data-open='true'] {
+  transform: translateY(0);
+}
+.xd-sheet-handle {
+  width: 40px;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--xdocs-color-border);
+  margin: 0.4rem auto 0.6rem;
+}
+.xd-mermaid {
+  text-align: center;
+  margin: 1rem 0;
+}
+.xd-mermaid svg {
+  max-width: 100%;
+  height: auto;
+}
+
+/* ---- Ask panel (D3) ---- */
+.xd-ask-btn {
+  padding: 0.3rem 0.7rem;
+  border: 1px solid var(--xdocs-color-border);
+  border-radius: var(--xdocs-radius);
+  background: var(--xdocs-color-primary);
+  color: #fff;
+  cursor: pointer;
+}
+.xd-export-btn {
+  padding: 0.3rem 0.7rem;
+  border: 1px solid var(--xdocs-color-border);
+  border-radius: var(--xdocs-radius);
+  background: var(--xdocs-color-bg);
+  color: inherit;
+  cursor: pointer;
+}
+.xd-ask {
+  position: absolute;
+  top: 48px;
+  right: 0;
+  bottom: 0;
+  width: min(420px, 92vw);
+  display: flex;
+  flex-direction: column;
+  background: var(--xdocs-color-bg);
+  border-left: 1px solid var(--xdocs-color-border);
+  box-shadow: -4px 0 16px rgba(0, 0, 0, 0.12);
+  transform: translateX(100%);
+  transition: transform 0.2s ease;
+  z-index: 40;
+}
+.xd-ask[data-open='true'] {
+  transform: translateX(0);
+}
+.xd-ask-head {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.6rem 0.8rem;
+  border-bottom: 1px solid var(--xdocs-color-border);
+}
+.xd-ask-head strong {
+  margin-right: auto;
+}
+.xd-ask-close,
+.xd-ask-scope {
+  border: 1px solid var(--xdocs-color-border);
+  border-radius: var(--xdocs-radius);
+  background: var(--xdocs-color-bg);
+  color: inherit;
+  cursor: pointer;
+  padding: 0.2rem 0.4rem;
+}
+.xd-ask-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 0.8rem;
+}
+.xd-ask-answer {
+  white-space: pre-wrap;
+  line-height: 1.55;
+}
+.xd-cite-label,
+.xd-ask-fb {
+  margin-top: 0.8rem;
+}
+.xd-cite {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 0.35rem 0.4rem;
+  border: 0;
+  border-radius: 6px;
+  background: var(--xdocs-color-surface);
+  color: var(--xdocs-color-primary);
+  cursor: pointer;
+  margin: 0.2rem 0;
+  font: inherit;
+}
+.xd-cite-label {
+  font-weight: 600;
+  color: var(--xdocs-color-muted);
+  font-size: 0.75rem;
+  text-transform: uppercase;
+}
+.xd-fb {
+  font-size: 1.1rem;
+  background: transparent;
+  border: 1px solid var(--xdocs-color-border);
+  border-radius: 6px;
+  cursor: pointer;
+  margin-right: 0.3rem;
+  padding: 0.2rem 0.5rem;
+}
+.xd-ask-summary,
+.xd-dl {
+  display: inline-block;
+  margin-top: 0.3rem;
+  color: var(--xdocs-color-primary);
+  background: transparent;
+  border: 1px solid var(--xdocs-color-border);
+  border-radius: 6px;
+  padding: 0.25rem 0.5rem;
+  cursor: pointer;
+  text-decoration: none;
+  font: inherit;
+}
+.xd-ask-form {
+  display: flex;
+  gap: 0.4rem;
+  padding: 0.7rem 0.8rem;
+  border-top: 1px solid var(--xdocs-color-border);
+}
+.xd-ask-input {
+  flex: 1;
+  padding: 0.4rem 0.6rem;
+  border: 1px solid var(--xdocs-color-border);
+  border-radius: var(--xdocs-radius);
+  background: var(--xdocs-color-bg);
+  color: inherit;
+}
+.xd-ask-form button {
+  padding: 0.4rem 0.8rem;
+  border: 0;
+  border-radius: var(--xdocs-radius);
+  background: var(--xdocs-color-primary);
+  color: #fff;
+  cursor: pointer;
+}
+/* Full-screen Ask on mobile (design §3.2.1). */
+.xd-root[data-mobile='true'] .xd-ask {
+  width: 100%;
+  top: 0;
+  border-left: 0;
+}
+
+/* ---- Admin / CMS (F1) ---- */
+.xd-admin {
+  display: grid;
+  grid-template-columns: 240px 1fr 1fr;
+  height: 640px;
+  border: 1px solid var(--xdocs-color-border);
+  border-radius: var(--xdocs-radius);
+  overflow: hidden;
+}
+.xd-admin-tree {
+  border-right: 1px solid var(--xdocs-color-border);
+  overflow-y: auto;
+  padding: 0.5rem;
+  font-size: 0.9rem;
+}
+.xd-admin-main {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border-right: 1px solid var(--xdocs-color-border);
+}
+.xd-admin-bar {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  padding: 0.5rem;
+  border-bottom: 1px solid var(--xdocs-color-border);
+}
+.xd-title-input {
+  flex: 1;
+  padding: 0.3rem 0.5rem;
+  border: 1px solid var(--xdocs-color-border);
+  border-radius: var(--xdocs-radius);
+  background: var(--xdocs-color-bg);
+  color: inherit;
+}
+.xd-admin-bar button,
+.xd-admin-lang {
+  padding: 0.3rem 0.7rem;
+  border: 1px solid var(--xdocs-color-border);
+  border-radius: var(--xdocs-radius);
+  background: var(--xdocs-color-bg);
+  color: inherit;
+  cursor: pointer;
+}
+.xd-admin-bar button.primary {
+  background: var(--xdocs-color-primary);
+  color: #fff;
+  border-color: var(--xdocs-color-primary);
+}
+.xd-md-toolbar {
+  display: flex;
+  gap: 0.25rem;
+  padding: 0.3rem 0.5rem;
+  border-bottom: 1px solid var(--xdocs-color-border);
+  flex-wrap: wrap;
+}
+.xd-md-toolbar button {
+  min-width: 28px;
+  padding: 0.15rem 0.4rem;
+  border: 1px solid var(--xdocs-color-border);
+  border-radius: 5px;
+  background: var(--xdocs-color-bg);
+  color: inherit;
+  cursor: pointer;
+  font-size: 0.8rem;
+}
+.xd-editor {
+  flex: 1;
+  width: 100%;
+  border: 0;
+  padding: 0.8rem;
+  resize: none;
+  font-family: ui-monospace, Menlo, monospace;
+  font-size: 0.9rem;
+  background: var(--xdocs-color-bg);
+  color: inherit;
+}
+.xd-admin-tree button.page.dragging {
+  opacity: 0.4;
+}
+.xd-admin-tree button.page[draggable='true'] {
+  cursor: grab;
+}
+.xd-preview {
+  overflow-y: auto;
+  padding: 1rem;
+}
+.xd-admin-status {
+  font-size: 0.8rem;
+  color: var(--xdocs-color-muted);
+}
+.xd-admin-book {
+  font-weight: 600;
+  margin: 0.6rem 0 0.2rem;
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+.xd-admin-tree button.page {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.3rem;
+  width: 100%;
+  text-align: left;
+  padding: 0.25rem 0.4rem;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  font: inherit;
+}
+.xd-admin-tree button.page:hover {
+  background: var(--xdocs-color-surface);
+}
+.xd-admin-tree button.page.active {
+  background: color-mix(in srgb, var(--xdocs-color-primary) 14%, transparent);
+}
+.xd-badge {
+  font-size: 0.62rem;
+  padding: 0 0.35rem;
+  border-radius: 4px;
+  text-transform: uppercase;
+}
+.xd-badge.draft {
+  background: #fde68a;
+  color: #92400e;
+}
+.xd-badge.published {
+  background: #bbf7d0;
+  color: #166534;
+}
+.xd-newpage {
+  font-size: 0.72rem;
+  border: 1px solid var(--xdocs-color-border);
+  border-radius: 4px;
+  background: var(--xdocs-color-bg);
+  color: var(--xdocs-color-primary);
+  cursor: pointer;
+}
+.xd-revs {
+  border-top: 1px solid var(--xdocs-color-border);
+  padding: 0.5rem;
+  font-size: 0.8rem;
+  max-height: 130px;
+  overflow-y: auto;
+}
+.xd-revs button {
+  border: 0;
+  background: transparent;
+  color: var(--xdocs-color-primary);
+  cursor: pointer;
+}
+
+/* ---- Master / portal page (B8) ---- */
+.xd-master {
+  padding: 1.25rem;
+}
+.xd-master-head {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+.xd-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 1rem;
+}
+.xd-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  text-align: left;
+  padding: 1rem;
+  border: 1px solid var(--xdocs-color-border);
+  border-radius: var(--xdocs-radius);
+  background: var(--xdocs-color-surface);
+  color: inherit;
+  cursor: pointer;
+  font: inherit;
+}
+.xd-card:hover {
+  border-color: var(--xdocs-color-primary);
+}
+.xd-card-title {
+  font-weight: 600;
+  font-size: 1.05rem;
+}
+.xd-card-desc {
+  color: var(--xdocs-color-muted);
+  font-size: 0.88rem;
+}
+.xd-card-meta {
+  color: var(--xdocs-color-muted);
+  font-size: 0.75rem;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .xd-nav,
+  .xd-sheet {
+    transition: none;
+  }
+}

@@ -19,7 +19,8 @@ The product is comparable in spirit to documentation portals such as **docs.avev
 
 - A **drop-in, style-isolated** documentation control usable by any web app, regardless of its framework.
 - A **master/landing page** aggregating multiple documentation sets (spaces/products) with global search.
-- Three-pane reading experience with **responsive** behavior (right TOC appears only when space allows).
+- Three-pane reading experience that is **fully mobile-compatible** — a mobile-first responsive layout that collapses gracefully to phones (the right TOC appears only when space allows).
+- A **basic test/demo host application** (static HTML page + tiny mock-IdP) that embeds the control and exercises the full host-issued-token flow end-to-end.
 - **Full CMS authoring**: create/edit markdown, drafts → publish, revision history, and multiple released product versions.
 - **Rich markdown**: syntax-highlighted code, Mermaid diagrams, GFM tables, admonitions/callouts, and KaTeX math.
 - **LLM features**: ask questions about docs (RAG with citations), generate summaries, and extract information into a downloadable document.
@@ -33,6 +34,7 @@ The product is comparable in spirit to documentation portals such as **docs.avev
 - Real-time multi-user collaborative editing (Google-Docs-style cursors). Edits are last-write-wins with optimistic locking + revision history.
 - Large/enterprise multi-tenant scale-out (designed for **< 10k pages, < 500 concurrent users**, with a documented scale-out path).
 - Building a bespoke identity provider — auth is delegated to the host.
+- **PWA / offline service-worker caching and native (app-store) apps** — v1 is responsive web only; offline reading is via PDF export. (PWA/Capacitor remains a documented future path.)
 
 ### 1.3 Key Decisions (Summary)
 
@@ -56,6 +58,12 @@ The product is comparable in spirit to documentation portals such as **docs.avev
 | Deployment | Docker + Kubernetes |
 | Analytics | Page views / popular docs + LLM answer feedback (👍/👎) |
 | License | Open-source intended (permissive, e.g. Apache-2.0/MIT) |
+| Tenancy | Single-tenant OSS in v1; schema/auth seams kept multi-tenant-ready |
+| Mobile | Fully responsive web (mobile-first); **no PWA/native** in v1 |
+| Offline | Via existing PDF export (download a page/book/space); no service worker |
+| Test host | Static HTML page embedding the control + tiny Node mock-IdP (demo JWT) |
+| Auth token | Host IdP issues JWT directly (no token-exchange endpoint in v1) |
+| LLM models | GPT-4o-class chat + `text-embedding-3-small`; budget guard + rate limits |
 
 ---
 
@@ -182,13 +190,26 @@ Design principles:
 └───────────────┴───────────────────────────────────┴─────────────────────┘
 ```
 
-**Responsive behavior**
+**Responsive behavior (mobile-first, fully mobile-compatible — decision below)**
 - **≥ 1280px**: all three panes visible.
 - **1024–1280px**: right TOC collapses to a floating "On this page" button/popover.
-- **768–1024px**: left index becomes a slide-over drawer; center full-width; TOC hidden.
-- **< 768px (mobile)**: hamburger drawer for nav, full-width content, TOC via a bottom sheet.
+- **768–1024px (tablet)**: left index becomes a slide-over drawer; center full-width; TOC hidden.
+- **< 768px (mobile)**: single-column, full-width content; nav and TOC move to mobile affordances (below).
 
 **Right TOC ("if space available")** is derived from the page's heading structure (H2/H3, optionally H4). It uses scroll-spy to highlight the active section and supports click-to-scroll with smooth anchored navigation. It is only mounted when the viewport width clears a configurable threshold.
+
+### 3.2.1 Mobile Experience (v1: responsive web only)
+
+The control is **fully responsive web** — touch-first, works on phones in any host. **No PWA/service worker and no native wrapper in v1** (offline reading is delivered via PDF export, not in-app caching — see §7). The following mobile patterns are first-class requirements:
+
+- **Swipe-able nav drawer** — the left page index opens as a left-edge swipe / hamburger drawer with a scrim; swipe-to-close, focus-trapped, remembers expansion state.
+- **Bottom-sheet TOC** — the right "On this page" index becomes a draggable bottom sheet on small screens (snap points: peek / expanded), with scroll-spy preserved.
+- **Full-screen Ask (LLM) panel** — the assistant opens as a full-screen, thumb-friendly sheet with streamed answers, scope selector, citations, and 👍/👎; safe-area aware.
+- **Sticky search + reachable quick actions** — a persistent top search bar; export / language / version / Ask controls kept within thumb range (bottom action bar or sheet on phones).
+- **Readable typography & code handling** — mobile-tuned font sizes and line length; long code blocks scroll horizontally (or soft-wrap, toggle) with copy; wide tables get horizontal scroll with edge-fade affordance; Mermaid diagrams pinch/scroll-zoom.
+- **Touch ergonomics** — ≥ 44px tap targets, `:active` feedback, momentum scroll, `prefers-reduced-motion` respected, iOS safe-area insets honored.
+
+Breakpoints/affordances are driven by container width (via `ResizeObserver` inside the Shadow DOM) so the layout adapts to the **host's allotted space**, not just the viewport — important since the control may be embedded in a narrow column.
 
 ### 3.3 Left Navigation Index
 
@@ -199,8 +220,9 @@ Design principles:
 
 ### 3.4 Master Page
 
-`<xdocs-master>` renders the landing/portal page:
-- Cards/sections per **space** (e.g., "SQL Server", "Platform", "API Reference").
+`<xdocs-master>` renders the landing/portal page. **Composition (decision §16.4): data-driven with optional curated blocks** — it works with zero editorial setup but admins can layer in branded content:
+- **Curated blocks (optional)**: admin-managed hero/intro/featured-docs blocks per deployment, rendered above the auto content.
+- Cards/sections per **space** (e.g., "SQL Server", "Platform", "API Reference") — auto-generated from the space list.
 - **Global search** bar (hybrid search) with type-ahead suggestions and result grouping by space/book.
 - Recently updated / popular pages (from analytics).
 - Entry point to the **Ask** (LLM) panel scoped to the whole corpus.
@@ -254,7 +276,8 @@ The **reader control stays light**; heavyweight editing libraries live only in `
 
 ### 3.8 Accessibility
 
-- WCAG 2.1 AA target: semantic landmarks, focus management for drawers/popovers, ARIA for the tree and TOC, keyboard-operable search and Ask panel, sufficient contrast in both themes, `prefers-reduced-motion` support.
+- WCAG 2.1 AA target: semantic landmarks, focus management for drawers/popovers/bottom-sheets, ARIA for the tree and TOC, keyboard-operable search and Ask panel, sufficient contrast in both themes, `prefers-reduced-motion` support.
+- **Mobile a11y**: ≥ 44px touch targets, focus trapping in the swipe drawer / bottom sheet / full-screen Ask panel, screen-reader-correct open/close announcements, and respect for iOS/Android safe areas and dynamic text scaling.
 
 ---
 
@@ -296,7 +319,7 @@ xdocs-api/
 
 ### 4.3 Authentication & Authorization
 
-- The **host app authenticates** the user and obtains an **Xdocs access token** (a signed JWT — either issued by the host's IdP or by a small token-exchange endpoint Xdocs trusts).
+- The **host app authenticates** the user and the **host's IdP issues a signed JWT directly** (decision §16.1 — Xdocs builds no token-exchange endpoint in v1). Xdocs trusts and validates this token.
 - Backend validates the JWT signature against the configured **JWKS** (cached), checks `iss`/`aud`/`exp`, and maps claims to:
   - **Identity**: `sub`, `email`, `locale`.
   - **Permissions**: roles/scopes such as `reader`, `editor`, `admin`, and optional **space-level ACLs** (`space:sql-server:read`, `space:platform:write`).
@@ -328,6 +351,7 @@ erDiagram
     uuid id PK
     uuid space_id FK
     string label  "e.g. 2019, 2022, latest"
+    string visibility  "internal|published"
     bool is_default
     int sort_order
   }
@@ -402,7 +426,7 @@ Notes:
 - **Content lives in `PAGE_TRANSLATION`** (per page × locale), so multilingual is first-class. The default-locale translation is the canonical source for fallback.
 - **Versioning is two-dimensional**:
   - *Editorial*: `PAGE.status` (draft/published) + `PAGE_REVISION` history per translation (rollback).
-  - *Product*: `PRODUCT_VERSION` lets readers switch between released doc sets (e.g., SQL Server 2019 vs 2022).
+  - *Product*: `PRODUCT_VERSION` lets readers switch between released doc sets (e.g., SQL Server 2019 vs 2022). Each version has a **`visibility` flag** (`internal` vs `published`) and the space **pins a default** version (decision §16.5); readers see only `published` versions and land on the default.
 - **Search units are `DOC_CHUNK`** rows (section-sized) with both a `tsvector` (keyword) and a `vector` embedding (semantic) — enabling hybrid search and precise RAG citations (each chunk carries an `anchor`).
 
 ### 4.5 Rendering & Caching
@@ -443,6 +467,8 @@ sequenceDiagram
 
 Indexing: a GIN index on `ts`, an HNSW/IVFFlat index on `embedding`. Embeddings are (re)generated by a worker on publish; stale chunks are pruned.
 
+> **v1 implementation note (Epic C).** The shipped v1 stores embeddings as JSONB and computes keyword matching + cosine similarity in the application, fusing with RRF. This is correct, ACL/scope-aware, and fully testable without a vector engine (target scale < 10k pages). The Postgres FTS **GIN index** is created in migration `0003`; the **pgvector `vector` column + HNSW** index is the documented scale-out — the query layer swaps to DB-native FTS + ANN behind the same `search()` interface when scale demands it. The embedding provider is pluggable (`mock` default for offline/CI; OpenAI/Azure `text-embedding-3-small` in production).
+
 ---
 
 ## 6. LLM Integration (Ask · Summarize · Extract)
@@ -450,6 +476,8 @@ Indexing: a GIN index on `ts`, an HNSW/IVFFlat index on `embedding`. Embeddings 
 ### 6.1 Provider Abstraction
 
 A thin `LLMProvider` interface wraps **OpenAI / Azure OpenAI** (chat + embeddings), so keys/endpoints are configurable and other providers can be added later. Configuration via env (`LLM_PROVIDER`, `OPENAI_API_KEY` / Azure endpoint + deployment names).
+
+**Default model tier (decision §16.2):** a **GPT-4o-class chat model** for Ask/summarize/extract and **`text-embedding-3-small`** for embeddings — a balanced quality/cost choice. Model names are env-configurable so a deployment can move to a quality-first (`embedding-3-large` + larger chat) or cost-first (mini) tier. A **monthly budget guard** plus per-user/token **rate limits** (Redis) bound spend (see §6.4).
 
 ### 6.2 Ask (RAG with Citations)
 
@@ -495,6 +523,7 @@ sequenceDiagram
 
 - **Server-side, high-fidelity** rendering via headless **Chromium (Playwright)**.
 - Two scopes: **single page** and **full book/space** (concatenated, with cover page, TOC, and page numbers).
+- **Offline reading (decision):** since v1 is responsive-web-only (no PWA), "download for offline" is delivered by this same pipeline — a user downloads a **page, book, or space as a PDF** to read offline. No service-worker caching or offline HTML bundle is built in v1.
 - Flow: client requests export → API enqueues a job → worker assembles a print-optimized HTML (same renderer + a print stylesheet, Mermaid/KaTeX rendered) → Chromium prints to PDF → stored in object storage → API returns a short-lived signed download URL → client downloads.
 - Print CSS: page breaks before H1/H2, repeated headers/footers, link URLs footnoted, image scaling, code-block wrapping.
 - The same pipeline backs the **LLM artifact → PDF** download.
@@ -537,7 +566,7 @@ Full editing capability, gated by `editor`/`admin` permissions:
 
 ## 9. Internationalization (i18n)
 
-- **Content**: per-page-per-locale translations (`PAGE_TRANSLATION`). Reader shows a **language switcher**; missing translations fall back to the space's default locale with a "not translated" hint.
+- **Content**: per-page-per-locale translations (`PAGE_TRANSLATION`). Reader shows a **language switcher**. **Missing-translation behavior (decision §16.3):** show the space's default-locale content with a "not translated" notice **and a one-click inline LLM auto-translation** action. Auto-translations are **ephemeral** (cached per page-revision × locale, not stored as managed content); authoritative translations are produced via the CMS review workflow below.
 - **UI strings**: the control loads locale bundles (JSON) for its own chrome (buttons, labels), selected via the `locale` attribute or host preference.
 - **Search & RAG** are locale-aware (query within the active locale, with fallback).
 - **Translation production**: both **human-authored** and **LLM-assisted** (draft → review → approve), per §8.
@@ -549,7 +578,7 @@ Full editing capability, gated by `editor`/`admin` permissions:
 Privacy-conscious, minimal:
 - **Page views / popular docs**: aggregate counts per page/section to power "popular" and "recently updated" on the master page.
 - **LLM answer feedback**: 👍/👎 (+ optional comment) stored per answer with the question hash and scope, for quality tuning.
-- (Search queries / zero-result terms can be added later — schema already supports an `ANALYTICS_EVENT.type`.)
+- **Search analytics (queries / zero-result terms) are deferred** to a later phase (decision §16.7); the `ANALYTICS_EVENT.type` schema already supports a `search` type so it can be enabled without migration.
 - Stored in Postgres; surfaced via simple admin dashboards. No third-party trackers; respects host privacy posture.
 
 ---
@@ -599,6 +628,7 @@ All responses are JSON (Pydantic), documented via FastAPI's auto-generated OpenA
 - **Containers**: `xdocs-api`, `xdocs-worker`, `xdocs-pdf` (Chromium), plus `postgres` (with pgvector), `redis`, and `minio` (or cloud S3) for self-host.
 - **Kubernetes**: Deployments + HPA for API and workers; PVCs/managed services for Postgres; Helm chart for install.
 - **Local dev**: `docker-compose` bringing up the full stack.
+- **Tenancy (decision §16.6)**: v1 is **single-tenant per deployment** (one org). ACL/query layers are centralized and the data model leaves seams (scoped repositories, an implicit tenant boundary) so multi-tenant isolation can be introduced later without a breaking migration.
 - **CI/CD**: lint/test, build images, run Alembic migrations on deploy.
 - **Observability**: structured logging, Prometheus metrics, health/readiness probes, request tracing.
 - **Config**: 12-factor env vars; example `.env` and Helm `values.yaml`.
@@ -638,9 +668,14 @@ xdocs/
     workers/
     migrations/        # Alembic
     tests/
+  examples/
+    test-host/         # demo host app: static HTML page + Node mock-IdP (§17)
+      public/          # index.html embedding <xdocs-viewer>
+      server.js        # mock-IdP: /auth/token + JWKS
+      README.md
   deploy/
     docker/            # Dockerfiles
-    compose/           # docker-compose.yml
+    compose/           # docker-compose.yml (stack + test-host service)
     helm/              # k8s chart
   docs/
     design/            # this document
@@ -654,9 +689,11 @@ xdocs/
 
 **Phase 0 — Foundations**
 - Repo scaffolding, FastAPI skeleton, Postgres + pgvector + Alembic, Docker Compose, auth (JWT validation) stub, Web Component build pipeline + Tailwind-in-shadow.
+- **Test host scaffold**: static HTML page + Node mock-IdP (`/auth/token` + JWKS) wired to the backend, added to the compose stack — used as the integration/E2E fixture from day one (§17).
 
-**Phase 1 — Read Experience (MVP)**
-- Content model (spaces/books/pages, default locale), server-side markdown render + heading extraction, `<xdocs-viewer>` three-pane layout (left nav, content, right TOC, responsive), `<xdocs-master>`, theming tokens, code highlight + Mermaid + KaTeX + admonitions.
+**Phase 1 — Read Experience (MVP, mobile-first)**
+- Content model (spaces/books/pages, default locale), server-side markdown render + heading extraction, `<xdocs-viewer>` three-pane layout (left nav, content, right TOC), `<xdocs-master>`, theming tokens, code highlight + Mermaid + KaTeX + admonitions.
+- **Full mobile responsiveness (§3.2.1)**: swipe nav drawer, bottom-sheet TOC, sticky search, container-width breakpoints (`ResizeObserver`), mobile typography/code/table handling, touch ergonomics — validated via Playwright emulated viewports against the test host.
 
 **Phase 2 — Search**
 - Chunking, embeddings worker, hybrid FTS + pgvector search, type-ahead, scoped/ACL filtering, search UI.
@@ -678,15 +715,67 @@ xdocs/
 
 ---
 
-## 16. Open Questions / Follow-ups
+## 16. Resolved Decisions
 
-1. **Token issuance**: will hosts issue Xdocs JWTs directly from their IdP, or do we provide a small token-exchange endpoint? (Affects auth setup docs.)
-2. **Embedding/LLM model choices & budget**: which OpenAI/Azure deployments (chat + embedding), and monthly cost ceiling?
-3. **Default locale fallback policy** when a translation is missing — show source language vs. hide page?
-4. **Master page composition** — fully data-driven from spaces, or curated/editorial landing content per deployment?
-5. **Versioning UX** — which versions are visible to readers vs. internal-only; default version per space.
-6. **Self-host vs SaaS packaging** for the open-source release (keys, multi-tenant toggle, quotas).
-7. **Search analytics** — include zero-result query capture in v1 or defer? (Schema already supports it.)
+The initial open questions have been decided as follows (these are now binding for planning):
+
+1. **Token issuance** — **Host IdP issues the JWT directly.** Xdocs does not build a token-exchange endpoint in v1; it only validates host-issued JWTs via JWKS (see §4.3). Integration docs will specify the required claims (`sub`, `email`, `locale`, roles/scopes, space ACLs), `aud`, `iss`, and signing algorithm (RS256/ES256).
+2. **Models & budget** — **Balanced tier:** a GPT-4o-class chat model for RAG/summarize/extract + `text-embedding-3-small` for embeddings, behind the provider abstraction. A configurable **monthly budget guard** and per-user/token **rate limits** (Redis) protect cost. Model names are env-configurable so deployments can move to a quality-first or cost-first tier.
+3. **Missing-translation fallback** — **Show source-language content with inline one-click LLM auto-translation.** When a page lacks the reader's locale, render the default-locale content with a "not translated" notice and an **on-the-fly LLM translation** action. Auto-translations are **ephemeral (not persisted)**; authors can still produce reviewed, stored translations via the CMS workflow (§8). On-demand translation respects the LLM budget/rate limits and is cacheable per (page revision × locale).
+4. **Master page composition** — **Data-driven with optional curated blocks.** The landing page auto-lists spaces/books plus popular & recently-updated sections, and admins may add curated hero/intro/featured blocks per deployment (managed content). Default deployments work with zero editorial setup.
+5. **Version UX** — **Per-version visibility flags + a pinned default.** Each `PRODUCT_VERSION` carries a visibility state (`internal/draft` vs `published`) and the space pins a default version (typically "latest"). Readers can switch only among **visible** versions; this lets teams stage an unreleased version before publishing.
+6. **Packaging / tenancy** — **Single-tenant OSS now, multi-tenant-ready schema.** v1 ships a clean single-tenant self-host (one org per deployment) under a permissive license, but auth/ACL and data-model seams are kept so multi-tenant isolation can be added later **without a breaking migration** (e.g., nullable/implicit `tenant_id` boundaries, scoped queries already centralized).
+7. **Search analytics** — **Deferred** to a later phase. v1 captures page views / popular docs + LLM answer feedback only. The `ANALYTICS_EVENT` schema already supports a `search` event type, so query / zero-result capture can be enabled later without migration.
+
+---
+
+## 17. Test / Demo Host Application
+
+A small, self-contained **host application** ships in the repo to prove the control embeds into an arbitrary web app and to exercise the **full host-issued-token auth flow** end-to-end (decision §16.1). It doubles as living integration documentation and a manual/E2E test fixture.
+
+### 17.1 Composition
+
+- **Static HTML page** (`examples/test-host/public/index.html`) — pure HTML + a little vanilla JS that:
+  - loads the `xdocs.js` bundle and places `<xdocs-viewer>` (and a link to the `<xdocs-master>` page),
+  - sets `base-url`, `space`, `locale`, `theme`, brand logo slot, and theme tokens,
+  - wires `viewer.tokenProvider = () => fetch('/auth/token').then(...)` to obtain a demo JWT,
+  - listens to `xdocs:navigate` / `xdocs:ready` and reflects routing into the URL hash.
+- **Tiny Node mock-IdP** (`examples/test-host/server.js`, ~1 file, minimal deps) that:
+  - serves the static page,
+  - exposes `GET /auth/token` which **mints a short-lived demo JWT** signed with a dev key, carrying the agreed claims (`sub`, `email`, `locale`, roles/scopes, space ACLs, `aud`, `iss`),
+  - publishes a **JWKS** endpoint (`/.well-known/jwks.json`) that the backend is configured to trust — so the real signature-validation path is tested, not bypassed.
+- A simple **role switcher** in the page (reader / editor / admin) to demo ACL-gated behavior and the CMS entry point.
+
+```mermaid
+sequenceDiagram
+  participant B as Browser (test host page)
+  participant H as Mock-IdP (Node)
+  participant V as &lt;xdocs-viewer&gt;
+  participant API as Xdocs FastAPI
+
+  B->>V: mount control, set tokenProvider
+  V->>H: GET /auth/token (role=editor)
+  H-->>V: demo JWT (signed, dev key)
+  V->>API: GET /pages/... (Bearer JWT)
+  API->>H: fetch JWKS (cached), verify signature/claims
+  API-->>V: content (ACL-filtered)
+  V-->>B: rendered docs
+```
+
+### 17.2 What it demonstrates / validates
+
+- Framework-agnostic **embedding** via the Web Component + Shadow DOM style isolation.
+- **Host-issued JWT** flow against the backend's JWKS validation and ACL filtering.
+- **Theming** via CSS tokens + logo slot; **light/dark** switching.
+- **Mobile responsiveness** — used as the device/E2E test surface (Playwright emulated viewports: phone, tablet, desktop) covering the swipe drawer, bottom-sheet TOC, full-screen Ask, and sticky search.
+- Core journeys: browse tree, read page (code/Mermaid/KaTeX/admonitions), search, Ask (RAG + citations), summarize/extract download, and PDF export (incl. "offline" book PDF).
+
+### 17.3 Running
+
+- Brought up by the same **docker-compose** dev stack (backend + Postgres/pgvector + Redis + MinIO) with the test host added as a service; seed data (a sample space/book/pages in multiple locales/versions) is loaded so the demo is immediately usable.
+- `examples/test-host/README.md` documents env vars (backend URL, dev signing key, claims) and how to point it at a local or remote backend.
+
+> Note: the mock-IdP is **for testing/demo only** and must never be used in production; it exists to emulate the host's real IdP so the integration contract is verifiable locally.
 
 ---
 

@@ -1,0 +1,55 @@
+# Xdocs Helm values. Postgres (with pgvector), Redis, and object storage are
+# expected to be provided externally and referenced here.
+
+image:
+  repository: ghcr.io/xdocs/xdocs-api
+  tag: latest
+  pullPolicy: IfNotPresent
+
+replicaCount: 2
+
+api:
+  port: 8000
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: "1"
+      memory: 1Gi
+  # Horizontal Pod Autoscaler
+  autoscaling:
+    enabled: true
+    minReplicas: 2
+    maxReplicas: 6
+    targetCPUUtilizationPercentage: 70
+
+# Non-secret configuration (rendered into a ConfigMap).
+config:
+  APP_ENV: production
+  API_BASE_PATH: /api/v1
+  JWT_ISSUER: https://idp.example.com
+  JWT_AUDIENCE: xdocs
+  JWKS_URL: https://idp.example.com/.well-known/jwks.json
+  CORS_ALLOWED_ORIGINS: https://app.example.com
+  LLM_PROVIDER: openai
+  LLM_CHAT_MODEL: gpt-4o
+  LLM_EMBED_MODEL: text-embedding-3-small
+  PDF_RENDERER: chromium
+
+# Secret values (rendered into a Secret). Override at install time / via a
+# secrets manager — do NOT commit real values.
+secrets:
+  DATABASE_URL: postgresql+asyncpg://xdocs:xdocs@postgres:5432/xdocs
+  REDIS_URL: redis://redis:6379/0
+  S3_ENDPOINT: ""
+  S3_BUCKET: xdocs-media
+  S3_ACCESS_KEY: ""
+  S3_SECRET_KEY: ""
+  OPENAI_API_KEY: ""
+
+ingress:
+  enabled: true
+  className: nginx
+  host: docs-api.example.com
+  tls: true

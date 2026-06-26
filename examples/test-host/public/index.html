@@ -1,0 +1,168 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Xdocs — Test Host</title>
+    <style>
+      :root {
+        font-family: ui-sans-serif, system-ui, sans-serif;
+      }
+      body {
+        margin: 0;
+        background: #eef2f7;
+      }
+      .host-bar {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        padding: 0.5rem 1rem;
+        background: #111827;
+        color: #fff;
+      }
+      .host-bar strong {
+        font-weight: 700;
+      }
+      .host-bar select,
+      .host-bar button {
+        padding: 0.25rem 0.5rem;
+        border-radius: 6px;
+        border: 1px solid #374151;
+        background: #1f2937;
+        color: #fff;
+      }
+      .frame {
+        max-width: 1200px;
+        margin: 1rem auto;
+        background: #fff;
+        border-radius: 10px;
+        box-shadow: 0 1px 4px rgba(0, 0, 0, 0.1);
+        overflow: hidden;
+      }
+      .note {
+        max-width: 1200px;
+        margin: 0.5rem auto;
+        color: #6b7280;
+        font-size: 0.85rem;
+        padding: 0 1rem;
+      }
+    </style>
+  </head>
+  <body>
+    <!-- This bar belongs to the HOST app, demonstrating the control embeds in an arbitrary page. -->
+    <div class="host-bar">
+      <strong>Acme App</strong>
+      <span>(host application)</span>
+      <label style="margin-left: auto">
+        Role:
+        <select id="role">
+          <option value="reader">reader</option>
+          <option value="editor">editor</option>
+          <option value="admin">admin</option>
+        </select>
+      </label>
+      <label>
+        Theme:
+        <select id="theme">
+          <option value="auto">auto</option>
+          <option value="light">light</option>
+          <option value="dark">dark</option>
+        </select>
+      </label>
+      <button id="adminBtn">Admin</button>
+    </div>
+
+    <p class="note" id="crumb">Portal — pick a documentation space.</p>
+    <div class="frame">
+      <!-- Master/portal page: lists spaces the user can read. -->
+      <xdocs-master id="master" base-url="http://localhost:8000" theme="auto">
+        <span slot="logo" style="font-weight: 700; color: #0b5cad">Acme Docs</span>
+      </xdocs-master>
+
+      <!-- Reader control; shown when a space is opened from the portal. -->
+      <xdocs-viewer id="viewer" base-url="http://localhost:8000" theme="auto" hidden>
+        <span slot="logo" style="font-weight: 700; color: #0b5cad">Acme Docs</span>
+      </xdocs-viewer>
+
+      <!-- CMS authoring (needs the editor/admin role). -->
+      <xdocs-admin id="admin" base-url="http://localhost:8000" space="sql-server" locales="en,fr,de" theme="auto" hidden>
+      </xdocs-admin>
+    </div>
+    <p class="note">
+      The role selector re-issues a demo JWT from the mock IdP (<code>/auth/token</code>); the
+      control sends it to the backend, which validates it against the mock IdP's JWKS. The portal
+      shows only spaces the role may read (try <em>reader</em> vs <em>admin</em>).
+    </p>
+
+    <script type="module" src="/dist/xdocs.js"></script>
+    <script type="module" src="/dist/xdocs-master.js"></script>
+    <script type="module" src="/dist/xdocs-admin.js"></script>
+    <script>
+      const master = document.getElementById('master');
+      const viewer = document.getElementById('viewer');
+      const admin = document.getElementById('admin');
+      const roleSel = document.getElementById('role');
+      const themeSel = document.getElementById('theme');
+      const crumb = document.getElementById('crumb');
+      const adminBtn = document.getElementById('adminBtn');
+
+      // Host provides tokens to all controls on demand (host-issued JWT flow, §16.1).
+      const tokenProvider = async () => {
+        const resp = await fetch(`/auth/token?role=${roleSel.value}`);
+        const { token } = await resp.json();
+        return token;
+      };
+      master.tokenProvider = tokenProvider;
+      viewer.tokenProvider = tokenProvider;
+      admin.tokenProvider = tokenProvider;
+
+      const showPortal = () => {
+        viewer.hidden = true;
+        admin.hidden = true;
+        master.hidden = false;
+        crumb.textContent = 'Portal — pick a documentation space.';
+      };
+
+      adminBtn.addEventListener('click', () => {
+        master.hidden = true;
+        viewer.hidden = true;
+        admin.hidden = false;
+        admin.tokenProvider = tokenProvider; // (re)load the tree
+        crumb.innerHTML = `<a href="#" id="back">← Portal</a> &nbsp;/&nbsp; admin (use the editor role)`;
+        document.getElementById('back').addEventListener('click', (ev) => {
+          ev.preventDefault();
+          showPortal();
+        });
+      });
+
+      // Open a space from the portal in the reader.
+      master.addEventListener('xdocs:open-space', (e) => {
+        viewer.setAttribute('space', e.detail.slug);
+        master.hidden = true;
+        viewer.hidden = false;
+        crumb.innerHTML = `<a href="#" id="back">← Portal</a> &nbsp;/&nbsp; ${e.detail.slug}`;
+        document.getElementById('back').addEventListener('click', (ev) => {
+          ev.preventDefault();
+          showPortal();
+        });
+      });
+
+      master.addEventListener('xdocs:search', (e) => console.log('search', e.detail));
+      viewer.addEventListener('xdocs:navigate', (e) => console.log('navigate', e.detail));
+      [master, viewer].forEach((el) =>
+        el.addEventListener('xdocs:error', (ev) => console.warn('xdocs error', ev.detail))
+      );
+
+      roleSel.addEventListener('change', () => {
+        // Re-issue tokens and reload the currently visible control.
+        master.tokenProvider = tokenProvider;
+        viewer.tokenProvider = tokenProvider;
+        showPortal();
+      });
+      themeSel.addEventListener('change', () => {
+        master.setAttribute('theme', themeSel.value);
+        viewer.setAttribute('theme', themeSel.value);
+      });
+    </script>
+  </body>
+</html>

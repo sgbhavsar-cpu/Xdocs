@@ -1,0 +1,29 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.env
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+htmlcov/
+.coverage
+
+# Node
+node_modules/
+dist/
+.pnpm-store/
+*.log
+npm-debug.log*
+
+# Build output
+frontend/dist/
+examples/test-host/public/dist/
+
+# OS / editor
+.DS_Store
+.idea/
+.vscode/
+*.swp
