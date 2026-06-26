@@ -46,6 +46,7 @@ class TreeOut(BaseModel):
     space: str
     version: VersionRef
     locale: str
+    locales: list[str] = []
     books: list[TreeBook]
 
 

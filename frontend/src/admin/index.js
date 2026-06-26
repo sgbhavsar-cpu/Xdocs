@@ -26,6 +26,7 @@ class XdocsAdmin extends HTMLElement {
   #ready = false;
   #pageId = null;
   #revision = null;
+  #editLocale = 'en';
 
   constructor() {
     super();
@@ -52,8 +53,12 @@ class XdocsAdmin extends HTMLElement {
   get locale() {
     return this.getAttribute('locale') || 'en';
   }
+  get locales() {
+    return (this.getAttribute('locales') || 'en,fr,de').split(',').map((s) => s.trim());
+  }
 
   connectedCallback() {
+    this.#editLocale = this.locale;
     this.#applyTheme();
     this.#renderShell();
     this.#upgradeProperty('tokenProvider');
@@ -109,8 +114,11 @@ class XdocsAdmin extends HTMLElement {
         <div class="xd-admin-main">
           <div class="xd-admin-bar">
             <input class="xd-title-input" aria-label="Page title" placeholder="Page title" />
+            <select class="xd-admin-lang" aria-label="Edit language"></select>
             <button class="xd-save">Save draft</button>
             <button class="xd-publish primary">Publish</button>
+            <button class="xd-draft" title="LLM-assisted translation">Draft (LLM)</button>
+            <button class="xd-approve">Approve</button>
             <span class="xd-admin-status"></span>
           </div>
           <textarea class="xd-editor" aria-label="Markdown" placeholder="Select a page to edit…"></textarea>
@@ -127,6 +135,21 @@ class XdocsAdmin extends HTMLElement {
     });
     this.#shadow.querySelector('.xd-save').addEventListener('click', () => this.#save());
     this.#shadow.querySelector('.xd-publish').addEventListener('click', () => this.#publish());
+    this.#shadow.querySelector('.xd-draft').addEventListener('click', () => this.#generateDraft());
+    this.#shadow.querySelector('.xd-approve').addEventListener('click', () => this.#approve());
+
+    const lang = this.#shadow.querySelector('.xd-admin-lang');
+    for (const loc of this.locales) {
+      const opt = document.createElement('option');
+      opt.value = loc;
+      opt.textContent = loc.toUpperCase();
+      lang.appendChild(opt);
+    }
+    lang.value = this.#editLocale;
+    lang.addEventListener('change', () => {
+      this.#editLocale = lang.value;
+      if (this.#pageId) this.#openPage(this.#pageId);
+    });
   }
 
   #status(msg) {
@@ -174,18 +197,54 @@ class XdocsAdmin extends HTMLElement {
   }
 
   async #openPage(pageId) {
+    this.#pageId = pageId;
+    this.#shadow.querySelectorAll('.xd-admin-tree button.page').forEach((b) => {
+      b.classList.toggle('active', b.dataset.page === pageId);
+    });
     try {
-      const tr = await this.#api(`/admin/pages/${pageId}/translations/${this.locale}`);
-      this.#pageId = pageId;
+      const tr = await this.#api(`/admin/pages/${pageId}/translations/${this.#editLocale}`);
       this.#revision = tr.revision;
       this.#shadow.querySelector('.xd-title-input').value = tr.title;
       this.#shadow.querySelector('.xd-editor').value = tr.markdown;
       this.#preview(tr.markdown);
       this.#loadRevisions();
-      this.#status(`rev ${tr.revision} · ${tr.status}`);
-      this.#shadow.querySelectorAll('.xd-admin-tree button.page').forEach((b) => {
-        b.classList.toggle('active', b.dataset.page === pageId);
+      this.#status(`rev ${tr.revision} · ${tr.status} · ${tr.translation_status}`);
+    } catch (err) {
+      if (err.status === 404) {
+        // No translation in this locale yet — offer an LLM-assisted draft.
+        this.#revision = null;
+        this.#shadow.querySelector('.xd-editor').value = '';
+        this.#shadow.querySelector('.xd-preview').innerHTML = '';
+        this.#status(`No “${this.#editLocale}” translation — use Draft (LLM)`);
+      } else {
+        this.#status(`Error: ${err.message}`);
+      }
+    }
+  }
+
+  async #generateDraft() {
+    if (!this.#pageId) return;
+    this.#status('Generating draft…');
+    try {
+      await this.#api(`/admin/pages/${this.#pageId}/translations/${this.#editLocale}/draft`, {
+        method: 'POST',
+        body: JSON.stringify({ source_locale: this.locale }),
       });
+      await this.#openPage(this.#pageId);
+      this.#status(`draft generated (${this.#editLocale})`);
+    } catch (err) {
+      this.#status(`Error: ${err.message}`);
+    }
+  }
+
+  async #approve() {
+    if (!this.#pageId) return;
+    try {
+      const res = await this.#api(
+        `/admin/pages/${this.#pageId}/translations/${this.#editLocale}/approve`,
+        { method: 'POST' }
+      );
+      this.#status(`status: ${res.translation_status}`);
     } catch (err) {
       this.#status(`Error: ${err.message}`);
     }
@@ -208,7 +267,7 @@ class XdocsAdmin extends HTMLElement {
     const markdown = this.#shadow.querySelector('.xd-editor').value;
     const title = this.#shadow.querySelector('.xd-title-input').value;
     try {
-      const res = await this.#api(`/admin/pages/${this.#pageId}/translations/${this.locale}`, {
+      const res = await this.#api(`/admin/pages/${this.#pageId}/translations/${this.#editLocale}`, {
         method: 'PUT',
         body: JSON.stringify({ markdown, title, base_revision: this.#revision }),
       });
@@ -236,7 +295,7 @@ class XdocsAdmin extends HTMLElement {
     const box = this.#shadow.querySelector('.xd-revs');
     try {
       const { items } = await this.#api(
-        `/admin/pages/${this.#pageId}/revisions?locale=${this.locale}`
+        `/admin/pages/${this.#pageId}/revisions?locale=${this.#editLocale}`
       );
       box.replaceChildren();
       const label = document.createElement('strong');
@@ -258,7 +317,7 @@ class XdocsAdmin extends HTMLElement {
   async #restore(revision) {
     try {
       const res = await this.#api(
-        `/admin/pages/${this.#pageId}/revisions/${revision}/restore?locale=${this.locale}`,
+        `/admin/pages/${this.#pageId}/revisions/${revision}/restore?locale=${this.#editLocale}`,
         { method: 'POST' }
       );
       this.#revision = res.revision;

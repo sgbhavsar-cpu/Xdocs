@@ -11,6 +11,7 @@
  * follow-up (B5); fenced mermaid/math blocks are left intact for that step.
  */
 
+import { t } from '../shared/i18n.js';
 import { highlightCode, renderMath, renderMermaid } from './enhancers.js';
 
 // Replaced at build time with the compiled Tailwind stylesheet (build.mjs).
@@ -32,6 +33,7 @@ class XdocsViewer extends HTMLElement {
   #tree = null;
   #currentPageId = null;
   #answerId = null;
+  #version = null;
 
   constructor() {
     super();
@@ -87,7 +89,10 @@ class XdocsViewer extends HTMLElement {
   attributeChangedCallback(name) {
     if (!this.#ready) return;
     if (name === 'theme') this.#applyTheme();
-    else if (name === 'space' || name === 'base-url' || name === 'locale') this.#init();
+    else if (name === 'locale') {
+      this.#applyI18n();
+      this.#init();
+    } else if (name === 'space' || name === 'base-url') this.#init();
   }
 
   #emit(type, detail) {
@@ -131,6 +136,8 @@ class XdocsViewer extends HTMLElement {
         <header class="xd-header">
           <button class="xd-hamburger" aria-label="Toggle navigation">☰</button>
           <slot name="logo"><strong style="color:var(--xdocs-color-primary)">Xdocs</strong></slot>
+          <select class="xd-version" aria-label="Version" hidden></select>
+          <select class="xd-lang" aria-label="Language" hidden></select>
           <div class="xd-search-wrap">
             <select class="xd-scope" aria-label="Search scope">
               <option value="space">This space</option>
@@ -233,6 +240,17 @@ class XdocsViewer extends HTMLElement {
     this.#shadow.querySelector('.xd-ask-summary').addEventListener('click', () => {
       this.#summarizePage();
     });
+
+    // Version + language switchers (G1/G3).
+    this.#shadow.querySelector('.xd-version').addEventListener('change', (e) => {
+      this.#version = e.target.value;
+      this.#loadTree();
+    });
+    this.#shadow.querySelector('.xd-lang').addEventListener('change', (e) => {
+      this.setAttribute('locale', e.target.value); // triggers reload + relabel
+    });
+    this.#applyI18n();
+
     this.#shadow.querySelector('.xd-export-btn').addEventListener('click', () => {
       if (this.#currentPageId) {
         this.#downloadExport({ type: 'page', id: this.#currentPageId }, 'page.pdf').catch(() => {});
@@ -321,7 +339,7 @@ class XdocsViewer extends HTMLElement {
     if (!items?.length) return;
     const label = document.createElement('div');
     label.className = 'xd-cite-label';
-    label.textContent = 'Sources';
+    label.textContent = t(this.locale, 'sources');
     container.appendChild(label);
     items.forEach((c, idx) => {
       const btn = document.createElement('button');
@@ -389,6 +407,27 @@ class XdocsViewer extends HTMLElement {
     if (panel) panel.hidden = true;
   }
 
+  #applyI18n() {
+    const loc = this.locale;
+    const set = (sel, key, attr) => {
+      const el = this.#shadow.querySelector(sel);
+      if (!el) return;
+      if (attr) el.setAttribute(attr, t(loc, key));
+      else el.textContent = t(loc, key);
+    };
+    set('.xd-search', 'search', 'placeholder');
+    set('.xd-ask-btn', 'ask');
+    set('.xd-export-btn', 'exportPdf');
+    set('.xd-ask-head strong', 'askTitle');
+    set('.xd-ask-summary', 'summarize');
+    const scopeOpts = this.#shadow.querySelectorAll('.xd-scope option, .xd-ask-scope option');
+    scopeOpts.forEach((o) => {
+      o.textContent = t(loc, o.value === 'corpus' ? 'everything' : 'thisSpace');
+    });
+    const send = this.#shadow.querySelector('.xd-ask-form button');
+    if (send) send.textContent = t(loc, 'send');
+  }
+
   #scopeValue() {
     const scope = this.#shadow.querySelector('.xd-scope')?.value || 'space';
     return scope === 'corpus' ? 'corpus' : `space:${this.space}`;
@@ -415,7 +454,7 @@ class XdocsViewer extends HTMLElement {
     if (!results.length) {
       const empty = document.createElement('div');
       empty.className = 'xd-results-empty';
-      empty.textContent = 'No results';
+      empty.textContent = t(this.locale, 'noResults');
       panel.appendChild(empty);
       panel.hidden = false;
       return;
@@ -458,6 +497,7 @@ class XdocsViewer extends HTMLElement {
     }
     try {
       await this.#api('/me'); // verify auth before loading content
+      await this.#loadVersions();
       await this.#loadTree();
     } catch (err) {
       this.#status(`Connection failed: ${err.message}`);
@@ -465,12 +505,48 @@ class XdocsViewer extends HTMLElement {
     }
   }
 
+  async #loadVersions() {
+    try {
+      const data = await this.#api('/spaces');
+      const space = (data.items || []).find((s) => s.slug === this.space);
+      const sel = this.#shadow.querySelector('.xd-version');
+      sel.replaceChildren();
+      const versions = space?.visible_versions || [];
+      for (const v of versions) {
+        const opt = document.createElement('option');
+        opt.value = v.label;
+        opt.textContent = v.label;
+        sel.appendChild(opt);
+      }
+      this.#version = space?.default_version?.label || versions[0]?.label || null;
+      if (this.#version) sel.value = this.#version;
+      sel.hidden = versions.length < 2; // only show when there's a choice
+    } catch {
+      /* versions optional */
+    }
+  }
+
   async #loadTree() {
-    this.#tree = await this.#api(`/spaces/${this.space}/tree?locale=${this.locale}`);
+    const vq = this.#version ? `&version=${encodeURIComponent(this.#version)}` : '';
+    this.#tree = await this.#api(`/spaces/${this.space}/tree?locale=${this.locale}${vq}`);
+    this.#populateLanguages(this.#tree.locales || []);
     this.#renderNav();
     const first = this.#firstPage();
     if (first) this.#loadPage(first.id);
     else this.#status('No pages in this space yet.');
+  }
+
+  #populateLanguages(locales) {
+    const sel = this.#shadow.querySelector('.xd-lang');
+    sel.replaceChildren();
+    for (const loc of locales) {
+      const opt = document.createElement('option');
+      opt.value = loc;
+      opt.textContent = loc.toUpperCase();
+      sel.appendChild(opt);
+    }
+    if (locales.includes(this.locale)) sel.value = this.locale;
+    sel.hidden = locales.length < 2;
   }
 
   #firstPage() {

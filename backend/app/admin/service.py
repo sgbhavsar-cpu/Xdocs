@@ -310,6 +310,223 @@ async def restore_revision(
     )
 
 
+# ---------------- Product versions (G1/G2) ----------------
+
+
+async def _version(session: AsyncSession, version_id: uuid.UUID) -> ProductVersion:
+    v = (
+        await session.execute(select(ProductVersion).where(ProductVersion.id == version_id))
+    ).scalar_one_or_none()
+    if v is None:
+        raise NotFoundError("Version not found.", details={"version": str(version_id)})
+    return v
+
+
+async def create_version(
+    session: AsyncSession,
+    user: Principal,
+    *,
+    space_id: uuid.UUID,
+    label: str,
+    visibility: str = "internal",
+    sort_order: int = 0,
+) -> ProductVersion:
+    space = await _space(session, space_id)
+    _require(user, space.slug, Permission.WRITE)
+    v = ProductVersion(
+        space_id=space_id,
+        label=label,
+        visibility=visibility,
+        is_default=False,
+        sort_order=sort_order,
+    )
+    session.add(v)
+    await session.commit()
+    return v
+
+
+async def update_version(
+    session: AsyncSession,
+    user: Principal,
+    version_id: uuid.UUID,
+    *,
+    visibility: str | None = None,
+    is_default: bool | None = None,
+) -> ProductVersion:
+    v = await _version(session, version_id)
+    space = await _space(session, v.space_id)
+    _require(user, space.slug, Permission.WRITE)
+    if visibility is not None:
+        v.visibility = visibility
+    if is_default:
+        # Only one default per space.
+        others = list(
+            (
+                await session.execute(
+                    select(ProductVersion).where(ProductVersion.space_id == v.space_id)
+                )
+            ).scalars()
+        )
+        for o in others:
+            o.is_default = False
+        v.is_default = True
+        v.visibility = "published"  # a default must be visible
+    await session.commit()
+    return v
+
+
+async def clone_version(
+    session: AsyncSession, user: Principal, version_id: uuid.UUID, *, new_label: str
+) -> ProductVersion:
+    src = await _version(session, version_id)
+    space = await _space(session, src.space_id)
+    _require(user, space.slug, Permission.WRITE)
+    new = ProductVersion(
+        space_id=src.space_id,
+        label=new_label,
+        visibility="internal",
+        is_default=False,
+        sort_order=src.sort_order + 1,
+    )
+    session.add(new)
+    await session.flush()
+
+    books = list((await session.execute(select(Book).where(Book.version_id == src.id))).scalars())
+    for b in books:
+        nb = Book(
+            space_id=b.space_id,
+            version_id=new.id,
+            slug=b.slug,
+            title=b.title,
+            sort_order=b.sort_order,
+        )
+        session.add(nb)
+        await session.flush()
+        pages = list(
+            (
+                await session.execute(
+                    select(Page).where(Page.book_id == b.id).order_by(Page.sort_order)
+                )
+            ).scalars()
+        )
+        id_map: dict[uuid.UUID, uuid.UUID] = {}
+        for p in pages:
+            np = Page(book_id=nb.id, slug=p.slug, sort_order=p.sort_order, status=p.status)
+            session.add(np)
+            await session.flush()
+            id_map[p.id] = np.id
+            trs = list(
+                (
+                    await session.execute(
+                        select(PageTranslation).where(PageTranslation.page_id == p.id)
+                    )
+                ).scalars()
+            )
+            for t in trs:
+                session.add(
+                    PageTranslation(
+                        page_id=np.id,
+                        locale=t.locale,
+                        title=t.title,
+                        markdown=t.markdown,
+                        html_cached=t.html_cached,
+                        headings=t.headings,
+                        translation_status=t.translation_status,
+                        revision=t.revision,
+                        published_at=t.published_at,
+                    )
+                )
+        # Re-link parent relationships within the cloned book.
+        for p in pages:
+            if p.parent_page_id and p.id in id_map and p.parent_page_id in id_map:
+                np = await _page(session, id_map[p.id])
+                np.parent_page_id = id_map[p.parent_page_id]
+    await session.commit()
+    return new
+
+
+# ---------------- LLM-assisted translation (G4) ----------------
+
+
+async def generate_translation_draft(
+    session: AsyncSession,
+    user: Principal,
+    *,
+    page_id: uuid.UUID,
+    locale: str,
+    source_locale: str = "en",
+) -> dict[str, Any]:
+    from app.llm.chat import get_chat_provider
+
+    page = await _page(session, page_id)
+    space = await _space_of_page(session, page)
+    _require(user, space.slug, Permission.WRITE)
+    src = await _translation(session, page_id, source_locale)
+    if src is None:
+        src = (
+            (
+                await session.execute(
+                    select(PageTranslation).where(PageTranslation.page_id == page_id)
+                )
+            )
+            .scalars()
+            .first()
+        )
+    if src is None:
+        raise NotFoundError("No source translation to translate from.")
+
+    translated = await get_chat_provider().complete(
+        f"Translate the following Markdown to {locale}. Preserve formatting.", src.markdown
+    )
+    tr = await _translation(session, page_id, locale)
+    if tr is None:
+        tr = PageTranslation(
+            page_id=page_id,
+            locale=locale,
+            title=src.title,
+            markdown=translated,
+            revision=1,
+            translation_status="llm_draft",
+        )
+        session.add(tr)
+        await session.flush()
+        new_rev = 1
+    else:
+        tr.markdown = translated
+        tr.translation_status = "llm_draft"
+        tr.revision += 1
+        new_rev = tr.revision
+    session.add(
+        PageRevision(
+            page_translation_id=tr.id,
+            revision=new_rev,
+            markdown=translated,
+            author_id=_as_uuid(user.sub),
+        )
+    )
+    await session.commit()
+    return {
+        "page_id": page_id,
+        "locale": locale,
+        "revision": new_rev,
+        "translation_status": "llm_draft",
+    }
+
+
+async def approve_translation(
+    session: AsyncSession, user: Principal, page_id: uuid.UUID, locale: str
+) -> dict[str, Any]:
+    page = await _page(session, page_id)
+    space = await _space_of_page(session, page)
+    _require(user, space.slug, Permission.WRITE)
+    tr = await _translation(session, page_id, locale)
+    if tr is None:
+        raise NotFoundError("Translation not found.")
+    tr.translation_status = "approved"
+    await session.commit()
+    return {"page_id": page_id, "locale": locale, "translation_status": "approved"}
+
+
 # ---------------- Admin tree (includes drafts) ----------------
 
 
@@ -382,4 +599,5 @@ async def get_translation(
         "markdown": tr.markdown,
         "revision": tr.revision,
         "status": page.status,
+        "translation_status": tr.translation_status,
     }

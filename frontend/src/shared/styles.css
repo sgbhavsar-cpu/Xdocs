@@ -58,7 +58,9 @@
   position: relative;
 }
 .xd-scope,
-.xd-search {
+.xd-search,
+.xd-version,
+.xd-lang {
   padding: 0.3rem 0.6rem;
   border: 1px solid var(--xdocs-color-border);
   border-radius: var(--xdocs-radius);
@@ -553,7 +555,8 @@
   background: var(--xdocs-color-bg);
   color: inherit;
 }
-.xd-admin-bar button {
+.xd-admin-bar button,
+.xd-admin-lang {
   padding: 0.3rem 0.7rem;
   border: 1px solid var(--xdocs-color-border);
   border-radius: var(--xdocs-radius);

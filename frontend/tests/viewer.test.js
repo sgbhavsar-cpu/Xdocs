@@ -189,6 +189,56 @@ describe('<xdocs-viewer>', () => {
     el.remove();
   });
 
+  it('shows version and language switchers (G1/G3)', async () => {
+    const el = document.createElement('xdocs-viewer');
+    el.setAttribute('base-url', 'http://api.test');
+    el.setAttribute('space', 'sql-server');
+    globalThis.fetch = async (url) => {
+      let body = {};
+      if (url.includes('/me')) body = { sub: 'u' };
+      else if (url.endsWith('/spaces')) {
+        body = {
+          items: [
+            {
+              slug: 'sql-server',
+              title: 'SQL',
+              description: '',
+              default_locale: 'en',
+              default_version: { id: 'v2', label: '2022' },
+              visible_versions: [
+                { id: 'v1', label: '2019' },
+                { id: 'v2', label: '2022' },
+              ],
+            },
+          ],
+        };
+      } else if (url.includes('/tree')) {
+        body = { space: 'sql-server', version: { label: '2022' }, locale: 'en', locales: ['en', 'fr'], books: [] };
+      }
+      return { ok: true, json: async () => body };
+    };
+    el.tokenProvider = async () => 'tok';
+    document.body.appendChild(el);
+    await new Promise((r) => setTimeout(r, 60));
+
+    const ver = el.shadowRoot.querySelector('.xd-version');
+    const lang = el.shadowRoot.querySelector('.xd-lang');
+    expect(ver.hidden).toBe(false);
+    expect([...ver.options].map((o) => o.value)).toEqual(['2019', '2022']);
+    expect(ver.value).toBe('2022');
+    expect(lang.hidden).toBe(false);
+    expect([...lang.options].map((o) => o.value)).toEqual(['en', 'fr']);
+    el.remove();
+  });
+
+  it('localizes chrome labels by locale (G3)', () => {
+    const el = document.createElement('xdocs-viewer');
+    el.setAttribute('locale', 'fr');
+    document.body.appendChild(el);
+    expect(el.shadowRoot.querySelector('.xd-search').getAttribute('placeholder')).toBe('Rechercher…');
+    el.remove();
+  });
+
   it('opens the Ask panel (D3)', () => {
     const el = document.createElement('xdocs-viewer');
     document.body.appendChild(el);

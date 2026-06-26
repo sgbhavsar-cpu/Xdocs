@@ -66,4 +66,63 @@ describe('<xdocs-admin>', () => {
     expect(el.shadowRoot.querySelector('.xd-admin-status').textContent).toContain('rev 2');
     el.remove();
   });
+
+  it('generates an LLM translation draft for a new locale (G4)', async () => {
+    const el = document.createElement('xdocs-admin');
+    el.setAttribute('base-url', 'http://api.test');
+    el.setAttribute('space', 'sql-server');
+    el.setAttribute('locales', 'en,fr');
+    let frExists = false;
+    globalThis.fetch = async (url, opts = {}) => {
+      const method = opts.method || 'GET';
+      let status = 200;
+      let body = {};
+      if (url.includes('/admin/spaces/') && url.endsWith('/tree')) {
+        body = {
+          space: 'sql-server',
+          books: [
+            {
+              id: 'b1',
+              slug: 'guide',
+              title: 'Guide',
+              pages: [{ id: 'p1', slug: 'gs', title: 'GS', status: 'draft', parent_page_id: null }],
+            },
+          ],
+        };
+      } else if (url.includes('/translations/en') && method === 'GET') {
+        body = { page_id: 'p1', locale: 'en', title: 'GS', markdown: '# GS', revision: 1, status: 'draft', translation_status: 'human' };
+      } else if (url.includes('/translations/fr/draft') && method === 'POST') {
+        frExists = true;
+        body = { page_id: 'p1', locale: 'fr', revision: 1, translation_status: 'llm_draft' };
+      } else if (url.includes('/translations/fr') && method === 'GET') {
+        if (!frExists) {
+          status = 404;
+          body = { error: {} };
+        } else {
+          body = { page_id: 'p1', locale: 'fr', title: 'GS', markdown: '[translated] # GS', revision: 1, status: 'draft', translation_status: 'llm_draft' };
+        }
+      } else if (url.includes('/admin/preview')) body = { html: '<h1>x</h1>', headings: [] };
+      else if (url.includes('/revisions')) body = { items: [] };
+      return { ok: status < 400, status, json: async () => body };
+    };
+    el.tokenProvider = async () => 'tok';
+    document.body.appendChild(el);
+    await new Promise((r) => setTimeout(r, 40));
+
+    el.shadowRoot.querySelector('.xd-admin-tree button.page').click();
+    await new Promise((r) => setTimeout(r, 40));
+
+    // Switch to French — no translation yet.
+    const lang = el.shadowRoot.querySelector('.xd-admin-lang');
+    lang.value = 'fr';
+    lang.dispatchEvent(new Event('change'));
+    await new Promise((r) => setTimeout(r, 40));
+    expect(el.shadowRoot.querySelector('.xd-admin-status').textContent).toContain('No');
+
+    // Generate the LLM draft.
+    el.shadowRoot.querySelector('.xd-draft').click();
+    await new Promise((r) => setTimeout(r, 60));
+    expect(el.shadowRoot.querySelector('.xd-editor').value).toContain('translated');
+    el.remove();
+  });
 });

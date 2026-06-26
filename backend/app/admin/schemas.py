@@ -54,3 +54,23 @@ class PreviewReq(BaseModel):
 class PreviewOut(BaseModel):
     html: str
     headings: list[dict]
+
+
+class CreateVersionReq(BaseModel):
+    space_id: uuid.UUID
+    label: str
+    visibility: str = "internal"
+    sort_order: int = 0
+
+
+class UpdateVersionReq(BaseModel):
+    visibility: str | None = None
+    is_default: bool | None = None
+
+
+class CloneVersionReq(BaseModel):
+    label: str
+
+
+class DraftReq(BaseModel):
+    source_locale: str = "en"

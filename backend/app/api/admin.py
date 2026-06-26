@@ -10,13 +10,17 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.admin import service
 from app.admin.schemas import (
+    CloneVersionReq,
     CreateBookReq,
     CreatePageReq,
     CreateSpaceReq,
+    CreateVersionReq,
+    DraftReq,
     PreviewOut,
     PreviewReq,
     ReorderReq,
     SaveTranslationReq,
+    UpdateVersionReq,
 )
 from app.auth.deps import CurrentUser
 from app.content.render import render_markdown
@@ -141,3 +145,62 @@ async def restore(
     locale: Annotated[str, Query()] = "en",
 ) -> dict[str, Any]:
     return await service.restore_revision(session, user, page_id, locale, revision)
+
+
+# ---- Versions (G1/G2) ----
+
+
+@router.post("/versions")
+async def create_version(
+    req: CreateVersionReq, session: Session, user: CurrentUser
+) -> dict[str, Any]:
+    v = await service.create_version(
+        session,
+        user,
+        space_id=req.space_id,
+        label=req.label,
+        visibility=req.visibility,
+        sort_order=req.sort_order,
+    )
+    return {"id": v.id, "label": v.label, "visibility": v.visibility, "is_default": v.is_default}
+
+
+@router.put("/versions/{version_id}")
+async def update_version(
+    version_id: uuid.UUID, req: UpdateVersionReq, session: Session, user: CurrentUser
+) -> dict[str, Any]:
+    v = await service.update_version(
+        session, user, version_id, visibility=req.visibility, is_default=req.is_default
+    )
+    return {"id": v.id, "label": v.label, "visibility": v.visibility, "is_default": v.is_default}
+
+
+@router.post("/versions/{version_id}/clone")
+async def clone_version(
+    version_id: uuid.UUID, req: CloneVersionReq, session: Session, user: CurrentUser
+) -> dict[str, Any]:
+    v = await service.clone_version(session, user, version_id, new_label=req.label)
+    return {"id": v.id, "label": v.label, "visibility": v.visibility}
+
+
+# ---- LLM-assisted translation (G4) ----
+
+
+@router.post("/pages/{page_id}/translations/{locale}/draft")
+async def translation_draft(
+    page_id: uuid.UUID,
+    locale: str,
+    req: DraftReq,
+    session: Session,
+    user: CurrentUser,
+) -> dict[str, Any]:
+    return await service.generate_translation_draft(
+        session, user, page_id=page_id, locale=locale, source_locale=req.source_locale
+    )
+
+
+@router.post("/pages/{page_id}/translations/{locale}/approve")
+async def translation_approve(
+    page_id: uuid.UUID, locale: str, session: Session, user: CurrentUser
+) -> dict[str, Any]:
+    return await service.approve_translation(session, user, page_id, locale)

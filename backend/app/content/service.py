@@ -100,6 +100,7 @@ async def get_tree(
 
     pages: list[Page] = []
     titles: dict[uuid.UUID, str] = {}
+    locales_present: set[str] = set()
     if book_ids:
         pages = list(
             (
@@ -120,6 +121,7 @@ async def get_tree(
         by_page: dict[uuid.UUID, dict[str, str]] = {}
         for t in trans:
             by_page.setdefault(t.page_id, {})[t.locale] = t.title
+            locales_present.add(t.locale)
         for pid, locales in by_page.items():
             titles[pid] = (
                 locales.get(loc)
@@ -148,6 +150,7 @@ async def get_tree(
         "space": space.slug,
         "version": _version_ref(version),
         "locale": loc,
+        "locales": sorted(locales_present or {space.default_locale}),
         "books": [
             {"id": b.id, "slug": b.slug, "title": b.title, "pages": build_children(b.id, None)}
             for b in books
