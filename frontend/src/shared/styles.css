@@ -22,6 +22,19 @@
   font-family: var(--xdocs-font-sans);
 }
 
+/* The `:host { display: block }` above overrides the UA `[hidden]` rule, so honor
+ * the standard `hidden` attribute hosts use to toggle controls (design §17 demo). */
+:host([hidden]) {
+  display: none;
+}
+
+/* Defensive reset: author rules that set `display` would otherwise beat the UA
+ * `[hidden] { display: none }`, leaking hidden menus/panels into view. Make the
+ * standard `hidden` attribute authoritative everywhere inside the shadow DOM. */
+[hidden] {
+  display: none !important;
+}
+
 :host([data-theme='dark']) {
   --xdocs-color-bg: #0f172a;
   --xdocs-color-fg: #e5e7eb;
@@ -29,6 +42,77 @@
   --xdocs-color-muted: #94a3b8;
   --xdocs-color-border: #1e293b;
   --xdocs-color-surface: #111827;
+}
+
+/* ---- Slim, themed scrollbars on every scroll area in the controls ---- */
+.xd-admin-tree,
+.xd-editor,
+.xd-preview,
+.xd-nav,
+.xd-revs,
+.xd-space-grid,
+.xd-book-grid,
+.xd-spaces,
+.xd-books,
+.xd-content {
+  scrollbar-width: thin;
+  scrollbar-color: var(--xdocs-color-border) transparent;
+}
+.xd-admin-tree::-webkit-scrollbar,
+.xd-editor::-webkit-scrollbar,
+.xd-preview::-webkit-scrollbar,
+.xd-nav::-webkit-scrollbar,
+.xd-revs::-webkit-scrollbar,
+.xd-space-grid::-webkit-scrollbar,
+.xd-book-grid::-webkit-scrollbar,
+.xd-spaces::-webkit-scrollbar,
+.xd-books::-webkit-scrollbar,
+.xd-content::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+.xd-admin-tree::-webkit-scrollbar-thumb,
+.xd-editor::-webkit-scrollbar-thumb,
+.xd-preview::-webkit-scrollbar-thumb,
+.xd-nav::-webkit-scrollbar-thumb,
+.xd-revs::-webkit-scrollbar-thumb,
+.xd-space-grid::-webkit-scrollbar-thumb,
+.xd-book-grid::-webkit-scrollbar-thumb,
+.xd-spaces::-webkit-scrollbar-thumb,
+.xd-books::-webkit-scrollbar-thumb,
+.xd-content::-webkit-scrollbar-thumb {
+  background: var(--xdocs-color-border);
+  border-radius: 8px;
+}
+.xd-admin-tree::-webkit-scrollbar-track,
+.xd-editor::-webkit-scrollbar-track,
+.xd-preview::-webkit-scrollbar-track,
+.xd-nav::-webkit-scrollbar-track,
+.xd-revs::-webkit-scrollbar-track,
+.xd-content::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+/* ---- Author-controlled image sizing & positioning (render.py attrs) ---- */
+.xd-content img,
+.xd-preview img {
+  max-width: 100%;
+  height: auto;
+}
+.xd-content img.xd-img-left,
+.xd-preview img.xd-img-left {
+  float: left;
+  margin: 0.2rem 1rem 0.6rem 0;
+}
+.xd-content img.xd-img-right,
+.xd-preview img.xd-img-right {
+  float: right;
+  margin: 0.2rem 0 0.6rem 1rem;
+}
+.xd-content img.xd-img-center,
+.xd-preview img.xd-img-center {
+  display: block;
+  margin-inline: auto;
 }
 
 /* ---- Layout (three-pane shell; responsive via [data-mobile]) ---- */
@@ -169,6 +253,12 @@
   text-transform: uppercase;
   font-size: 0.72rem;
   letter-spacing: 0.04em;
+}
+.xd-nav .xd-section-nav {
+  font-weight: 600;
+  margin: 0.4rem 0 0.1rem 0.5rem;
+  color: var(--xdocs-color-fg);
+  font-size: 0.78rem;
 }
 .xd-nav button {
   display: block;
@@ -399,6 +489,20 @@
   color: inherit;
   cursor: pointer;
 }
+/* Edit (authoring) entry point — only shown when the user has write access. */
+.xd-edit-btn {
+  padding: 0.3rem 0.7rem;
+  border: 1px solid var(--xdocs-color-primary);
+  border-radius: var(--xdocs-radius);
+  background: var(--xdocs-color-bg);
+  color: var(--xdocs-color-primary);
+  font-weight: 600;
+  cursor: pointer;
+}
+.xd-edit-btn:hover {
+  background: var(--xdocs-color-primary);
+  color: #fff;
+}
 .xd-ask {
   position: absolute;
   top: 48px;
@@ -520,13 +624,257 @@
 }
 
 /* ---- Admin / CMS (F1) ---- */
-.xd-admin {
+/* The admin control shows one screen at a time: spaces grid, books grid, or editor. */
+.xd-admin-root[data-mode='spaces'] .xd-books,
+.xd-admin-root[data-mode='spaces'] .xd-admin {
+  display: none;
+}
+.xd-admin-root[data-mode='books'] .xd-spaces,
+.xd-admin-root[data-mode='books'] .xd-admin {
+  display: none;
+}
+.xd-admin-root[data-mode='editor'] .xd-spaces,
+.xd-admin-root[data-mode='editor'] .xd-books {
+  display: none;
+}
+
+/* Books grid reuses the space-card visuals; only the header differs. */
+.xd-books {
+  padding: 1rem clamp(0.75rem, 3vw, 1.5rem);
+  min-height: 480px;
+}
+.xd-books-head {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+  font-size: 1.1rem;
+}
+.xd-books-back,
+.xd-tree-back {
+  border: 1px solid var(--xdocs-color-primary);
+  border-radius: var(--xdocs-radius);
+  background: var(--xdocs-color-bg);
+  color: var(--xdocs-color-primary);
+  font-weight: 600;
+  cursor: pointer;
+  padding: 0.3rem 0.7rem;
+}
+.xd-tree-back {
+  width: 100%;
+  text-align: left;
+  margin-bottom: 0.5rem;
+}
+.xd-books-head button.primary {
+  background: var(--xdocs-color-primary);
+  color: #fff;
+  border-color: var(--xdocs-color-primary);
+  padding: 0.35rem 0.8rem;
+  border-radius: var(--xdocs-radius);
+  cursor: pointer;
+}
+.xd-books-head .xd-import-book {
+  border: 1px solid var(--xdocs-color-border);
+  border-radius: var(--xdocs-radius);
+  background: var(--xdocs-color-bg);
+  color: inherit;
+  padding: 0.35rem 0.8rem;
+  cursor: pointer;
+}
+.xd-book-grid {
   display: grid;
-  grid-template-columns: 240px 1fr 1fr;
+  grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+  gap: 0.9rem;
+}
+
+/* ---- Spaces management grid ---- */
+.xd-spaces {
+  padding: 1rem clamp(0.75rem, 3vw, 1.5rem);
+  min-height: 480px;
+}
+.xd-spaces-head {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+  font-size: 1.1rem;
+}
+.xd-space-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+  gap: 0.9rem;
+}
+.xd-space-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--xdocs-color-border);
+  border-left: 5px solid var(--xd-space-color, var(--xdocs-color-primary));
+  border-radius: var(--xdocs-radius);
+  background: var(--xdocs-color-surface);
+  overflow: hidden;
+  transition: box-shadow 0.15s ease;
+}
+.xd-space-card:hover {
+  box-shadow: 0 4px 16px rgba(16, 24, 40, 0.1);
+}
+.xd-space-open {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  flex: 1;
+  text-align: left;
+  padding: 0.9rem;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  font: inherit;
+}
+.xd-space-title {
+  font-weight: 650;
+  font-size: 1rem;
+}
+.xd-space-desc {
+  color: var(--xdocs-color-muted);
+  font-size: 0.85rem;
+}
+.xd-space-meta {
+  color: var(--xdocs-color-muted);
+  font-size: 0.75rem;
+  margin-top: 0.2rem;
+}
+.xd-space-actions {
+  display: flex;
+  gap: 0.25rem;
+  padding: 0.4rem 0.6rem;
+  border-top: 1px solid var(--xdocs-color-border);
+}
+.xd-space-actions button {
+  border: 1px solid var(--xdocs-color-border);
+  border-radius: 6px;
+  background: var(--xdocs-color-bg);
+  color: inherit;
+  cursor: pointer;
+  padding: 0.15rem 0.45rem;
+  font-size: 0.85rem;
+}
+.xd-space-actions button.danger:hover {
+  border-color: #dc2626;
+  color: #dc2626;
+}
+
+/* ---- Space create / edit form ---- */
+.xd-space-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  margin-bottom: 1rem;
+  padding: 0.9rem;
+  border: 1px solid var(--xdocs-color-border);
+  border-radius: var(--xdocs-radius);
+  background: var(--xdocs-color-surface);
+}
+.xd-space-form label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  font-size: 0.8rem;
+  color: var(--xdocs-color-muted);
+}
+.xd-space-form input[type='text'],
+.xd-space-form input:not([type]) {
+  padding: 0.35rem 0.5rem;
+  border: 1px solid var(--xdocs-color-border);
+  border-radius: var(--xdocs-radius);
+  background: var(--xdocs-color-bg);
+  color: inherit;
+  font: inherit;
+}
+.xd-form-row {
+  display: flex;
+  gap: 0.6rem;
+}
+.xd-form-row > label {
+  flex: 1;
+}
+.xd-sf-color-wrap {
+  flex-direction: row !important;
+  align-items: center;
+  gap: 0.5rem !important;
+}
+.xd-sf-swatches {
+  display: inline-flex;
+  gap: 0.25rem;
+}
+.xd-color-swatch {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: 1px solid var(--xdocs-color-border);
+  cursor: pointer;
+  padding: 0;
+}
+.xd-form-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+.xd-form-actions button {
+  padding: 0.3rem 0.8rem;
+  border: 1px solid var(--xdocs-color-border);
+  border-radius: var(--xdocs-radius);
+  background: var(--xdocs-color-bg);
+  color: inherit;
+  cursor: pointer;
+}
+.xd-form-actions button.primary,
+.xd-spaces-head button.primary {
+  background: var(--xdocs-color-primary);
+  color: #fff;
+  border-color: var(--xdocs-color-primary);
+}
+.xd-spaces-head button.primary {
+  padding: 0.35rem 0.8rem;
+  border-radius: var(--xdocs-radius);
+  cursor: pointer;
+}
+.xd-sf-status {
+  font-size: 0.8rem;
+  color: var(--xdocs-color-muted);
+}
+
+.xd-admin {
+  position: relative;
+  display: grid;
+  /* Tree width is user-resizable via the splitter (persisted to localStorage). */
+  grid-template-columns: var(--xd-tree-w, 240px) 6px 1fr;
   height: 640px;
   border: 1px solid var(--xdocs-color-border);
   border-radius: var(--xdocs-radius);
   overflow: hidden;
+}
+/* Drag handle between the tree and the editor. */
+.xd-splitter {
+  cursor: col-resize;
+  background: var(--xdocs-color-border);
+  opacity: 0.5;
+  transition: opacity 0.12s ease;
+}
+.xd-splitter:hover,
+.xd-splitter.dragging {
+  opacity: 1;
+  background: var(--xdocs-color-primary);
+}
+/* Fullscreen authoring (Esc to exit). */
+.xd-admin[data-zen='true'] {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  height: 100vh;
+  border: 0;
+  border-radius: 0;
+  background: var(--xdocs-color-bg);
 }
 .xd-admin-tree {
   border-right: 1px solid var(--xdocs-color-border);
@@ -538,7 +886,7 @@
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  border-right: 1px solid var(--xdocs-color-border);
+  min-width: 0;
 }
 .xd-admin-bar {
   display: flex;
@@ -569,6 +917,15 @@
   color: #fff;
   border-color: var(--xdocs-color-primary);
 }
+.xd-admin-bar button.xd-view-btn {
+  color: var(--xdocs-color-primary);
+  font-weight: 600;
+  border-color: var(--xdocs-color-primary);
+}
+.xd-admin-bar button.xd-view-btn:hover {
+  background: var(--xdocs-color-primary);
+  color: #fff;
+}
 .xd-md-toolbar {
   display: flex;
   gap: 0.25rem;
@@ -597,10 +954,10 @@
   background: var(--xdocs-color-bg);
   color: inherit;
 }
-.xd-admin-tree button.page.dragging {
+.xd-page-row.dragging {
   opacity: 0.4;
 }
-.xd-admin-tree button.page[draggable='true'] {
+.xd-page-row[draggable='true'] {
   cursor: grab;
 }
 .xd-preview {
@@ -616,7 +973,85 @@
   margin: 0.6rem 0 0.2rem;
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 0.3rem;
+}
+.xd-book-title,
+.xd-section-title {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+/* Coloured banner naming the open space at the top of the tree. */
+.xd-tree-space {
+  font-weight: 700;
+  padding: 0.3rem 0.45rem;
+  margin-bottom: 0.4rem;
+  border-radius: 6px;
+  border-left: 4px solid var(--xd-space-color, var(--xdocs-color-primary));
+  background: color-mix(in srgb, var(--xd-space-color, var(--xdocs-color-primary)) 12%, transparent);
+}
+/* Section sub-heading inside a book. */
+.xd-section {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+  margin: 0.3rem 0 0.1rem 0.4rem;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--xdocs-color-muted);
+}
+.xd-section-title {
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+.xd-tree-act {
+  display: inline-flex;
+  gap: 0.15rem;
+}
+.xd-tree-act button.danger:hover {
+  border-color: #dc2626;
+  color: #dc2626;
+}
+/* A page row: the open button + hover-revealed rename/delete actions. */
+.xd-page-row {
+  display: flex;
+  align-items: center;
+  gap: 0.15rem;
+}
+.xd-page-row .page {
+  flex: 1;
+  min-width: 0;
+}
+.xd-page-title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.xd-row-act {
+  font-size: 0.72rem;
+  padding: 0.1rem 0.3rem;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--xdocs-color-muted);
+  cursor: pointer;
+  opacity: 0;
+}
+.xd-page-row:hover .xd-row-act,
+.xd-page-row:focus-within .xd-row-act {
+  opacity: 1;
+}
+.xd-row-act:hover {
+  border-color: var(--xdocs-color-border);
+  color: inherit;
+}
+.xd-row-act.danger:hover {
+  border-color: #dc2626;
+  color: #dc2626;
 }
 .xd-admin-tree button.page {
   display: flex;
@@ -675,6 +1110,177 @@
   cursor: pointer;
 }
 
+/* ---- Rich editor chrome (F1) ---- */
+.xd-admin-bar {
+  flex-wrap: wrap;
+}
+.xd-bar-spacer {
+  flex: 1;
+}
+.xd-status-badge {
+  font-size: 0.66rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  padding: 0.1rem 0.45rem;
+  border-radius: 999px;
+  white-space: nowrap;
+}
+.xd-status-badge[data-s='draft'] {
+  background: #fde68a;
+  color: #92400e;
+}
+.xd-status-badge[data-s='published'] {
+  background: #bbf7d0;
+  color: #166534;
+}
+.xd-status-badge.dirty {
+  outline: 2px solid color-mix(in srgb, var(--xdocs-color-primary) 60%, transparent);
+}
+.xd-viewmodes {
+  display: inline-flex;
+  border: 1px solid var(--xdocs-color-border);
+  border-radius: var(--xdocs-radius);
+  overflow: hidden;
+}
+.xd-viewmodes button {
+  border: 0 !important;
+  border-radius: 0 !important;
+  padding: 0.3rem 0.5rem;
+}
+.xd-viewmodes button.active {
+  background: color-mix(in srgb, var(--xdocs-color-primary) 16%, transparent);
+  color: var(--xdocs-color-primary);
+}
+.xd-menu-wrap {
+  position: relative;
+  display: inline-flex;
+}
+.xd-menu {
+  position: absolute;
+  top: calc(100% + 4px);
+  right: 0;
+  z-index: 30;
+  min-width: 200px;
+  display: flex;
+  flex-direction: column;
+  padding: 0.25rem;
+  background: var(--xdocs-color-bg);
+  border: 1px solid var(--xdocs-color-border);
+  border-radius: var(--xdocs-radius);
+  box-shadow: 0 8px 24px rgba(16, 24, 40, 0.18);
+}
+.xd-menu button {
+  text-align: left !important;
+  border: 0 !important;
+  background: transparent !important;
+  padding: 0.4rem 0.5rem !important;
+  border-radius: 6px !important;
+}
+.xd-menu button:hover {
+  background: var(--xdocs-color-surface) !important;
+}
+.xd-menu button.danger {
+  color: #b91c1c;
+}
+.xd-tb-sep {
+  width: 1px;
+  align-self: stretch;
+  margin: 0.1rem 0.15rem;
+  background: var(--xdocs-color-border);
+}
+.xd-block,
+.xd-code-lang {
+  padding: 0.15rem 0.3rem;
+  border: 1px solid var(--xdocs-color-border);
+  border-radius: 5px;
+  background: var(--xdocs-color-bg);
+  color: inherit;
+  font-size: 0.8rem;
+  cursor: pointer;
+}
+.xd-edit-wrap {
+  flex: 1;
+  display: flex;
+  min-height: 0;
+}
+.xd-edit-wrap > .xd-editor {
+  width: auto;
+  flex: 1 1 0;
+  min-width: 0;
+}
+.xd-edit-wrap > .xd-preview {
+  flex: 1 1 0;
+  min-width: 0;
+  border-left: 1px solid var(--xdocs-color-border);
+}
+.xd-admin[data-view='write'] .xd-edit-wrap > .xd-preview {
+  display: none;
+}
+.xd-admin[data-view='preview'] .xd-edit-wrap > .xd-editor {
+  display: none;
+}
+.xd-statusbar {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.25rem 0.6rem;
+  border-top: 1px solid var(--xdocs-color-border);
+  font-size: 0.74rem;
+  color: var(--xdocs-color-muted);
+}
+.xd-muted {
+  color: var(--xdocs-color-muted);
+}
+.xd-revs-panel {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 290px;
+  z-index: 25;
+  display: flex;
+  flex-direction: column;
+  background: var(--xdocs-color-bg);
+  border-left: 1px solid var(--xdocs-color-border);
+  box-shadow: -8px 0 24px rgba(16, 24, 40, 0.12);
+}
+.xd-revs-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.6rem 0.75rem;
+  border-bottom: 1px solid var(--xdocs-color-border);
+}
+.xd-revs-head button {
+  border: 0;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  font-size: 1rem;
+}
+.xd-revs-panel .xd-revs {
+  border-top: 0;
+  max-height: none;
+  flex: 1;
+}
+.xd-rev-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.4rem;
+  padding: 0.15rem 0;
+}
+.xd-rev-open {
+  flex: 1;
+  text-align: left;
+  font: inherit;
+}
+.xd-rev-restore {
+  color: var(--xdocs-color-primary);
+  font-weight: 600;
+}
+
 /* ---- Master / portal page (B8) ---- */
 .xd-master {
   padding: 1.25rem;
@@ -697,6 +1303,7 @@
   text-align: left;
   padding: 1rem;
   border: 1px solid var(--xdocs-color-border);
+  border-left: 5px solid var(--xd-space-color, var(--xdocs-color-border));
   border-radius: var(--xdocs-radius);
   background: var(--xdocs-color-surface);
   color: inherit;
@@ -705,6 +1312,7 @@
 }
 .xd-card:hover {
   border-color: var(--xdocs-color-primary);
+  border-left-color: var(--xd-space-color, var(--xdocs-color-primary));
 }
 .xd-card-title {
   font-weight: 600;
@@ -719,9 +1327,296 @@
   font-size: 0.75rem;
 }
 
+/* ---- ISDEV dev-config panel ---- */
+.xd-devpanel-toggle {
+  position: fixed;
+  right: 14px;
+  bottom: 14px;
+  z-index: 10000;
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  border: 1px solid var(--xdocs-color-border);
+  background: var(--xdocs-color-surface);
+  color: var(--xdocs-color-fg);
+  font-size: 1.1rem;
+  cursor: pointer;
+  box-shadow: 0 4px 14px rgba(16, 24, 40, 0.18);
+}
+.xd-devpanel {
+  position: fixed;
+  right: 14px;
+  bottom: 60px;
+  z-index: 10000;
+  width: 280px;
+  max-height: 70vh;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 0.8rem;
+  border: 1px solid var(--xdocs-color-border);
+  border-radius: var(--xdocs-radius);
+  background: var(--xdocs-color-bg);
+  color: var(--xdocs-color-fg);
+  box-shadow: 0 8px 28px rgba(16, 24, 40, 0.22);
+  font-size: 0.85rem;
+}
+.xd-devpanel-head {
+  display: flex;
+  align-items: center;
+}
+.xd-dp-close {
+  border: 0;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  font-size: 0.9rem;
+}
+.xd-dp-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+.xd-dp-row select {
+  flex: 1;
+  padding: 0.2rem 0.3rem;
+  border: 1px solid var(--xdocs-color-border);
+  border-radius: 5px;
+  background: var(--xdocs-color-bg);
+  color: inherit;
+}
+.xd-dp-colors {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.3rem 0.6rem;
+  margin: 0.2rem 0;
+}
+.xd-dp-colors input[type='color'] {
+  width: 34px;
+  height: 22px;
+  padding: 0;
+  border: 1px solid var(--xdocs-color-border);
+  border-radius: 4px;
+  background: none;
+  cursor: pointer;
+}
+.xd-dp-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+.xd-dp-actions button {
+  padding: 0.25rem 0.6rem;
+  border: 1px solid var(--xdocs-color-border);
+  border-radius: 5px;
+  background: var(--xdocs-color-bg);
+  color: inherit;
+  cursor: pointer;
+}
+.xd-dp-css {
+  width: 100%;
+  min-height: 88px;
+  font-family: ui-monospace, Menlo, monospace;
+  font-size: 0.72rem;
+  border: 1px solid var(--xdocs-color-border);
+  border-radius: 5px;
+  background: var(--xdocs-color-surface);
+  color: inherit;
+  resize: vertical;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .xd-nav,
   .xd-sheet {
     transition: none;
   }
+}
+
+/* ===== Word-like editor: find bar, outline, slash/emoji menus, sync ===== */
+
+/* Active toggle state shared by toolbar/bar toggle buttons. */
+.xd-sync.active,
+.xd-spell.active,
+.xd-find-case.active,
+.xd-find-re.active {
+  background: color-mix(in srgb, var(--xdocs-color-primary) 16%, transparent);
+  color: var(--xdocs-color-primary);
+  border-color: var(--xdocs-color-primary);
+}
+
+/* Find & replace bar (between the toolbar and the editor panes). */
+.xd-find {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  flex-wrap: wrap;
+  padding: 0.3rem 0.5rem;
+  border-bottom: 1px solid var(--xdocs-color-border);
+  background: var(--xdocs-color-surface);
+}
+.xd-find[hidden] {
+  display: none;
+}
+.xd-find input {
+  padding: 0.2rem 0.4rem;
+  border: 1px solid var(--xdocs-color-border);
+  border-radius: 5px;
+  background: var(--xdocs-color-bg);
+  color: inherit;
+  font-size: 0.8rem;
+}
+.xd-find-input,
+.xd-replace-input {
+  min-width: 140px;
+}
+.xd-find button {
+  min-width: 26px;
+  padding: 0.15rem 0.4rem;
+  border: 1px solid var(--xdocs-color-border);
+  border-radius: 5px;
+  background: var(--xdocs-color-bg);
+  color: inherit;
+  cursor: pointer;
+  font-size: 0.78rem;
+}
+.xd-find-count {
+  font-size: 0.74rem;
+  color: var(--xdocs-color-muted);
+  min-width: 36px;
+  text-align: center;
+}
+
+/* Cursor position + selection word count in the status bar. */
+.xd-cursor,
+.xd-sel-count {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Outline navigator panel (mirrors the revision-history panel). */
+.xd-outline-panel {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 260px;
+  z-index: 25;
+  display: flex;
+  flex-direction: column;
+  background: var(--xdocs-color-bg);
+  border-left: 1px solid var(--xdocs-color-border);
+  box-shadow: -8px 0 24px rgba(16, 24, 40, 0.12);
+}
+.xd-outline-panel[hidden] {
+  display: none;
+}
+.xd-outline {
+  overflow-y: auto;
+  flex: 1;
+  padding: 0.3rem;
+}
+.xd-outline-item {
+  display: block;
+  width: 100%;
+  text-align: left;
+  border: 0;
+  background: none;
+  color: inherit;
+  cursor: pointer;
+  padding: 0.2rem 0.3rem;
+  border-radius: 5px;
+  font-size: 0.82rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.xd-outline-item:hover {
+  background: var(--xdocs-color-surface);
+}
+.xd-outline-item.lvl-2 {
+  padding-left: 0.9rem;
+}
+.xd-outline-item.lvl-3 {
+  padding-left: 1.5rem;
+}
+.xd-outline-item.lvl-4 {
+  padding-left: 2.1rem;
+}
+.xd-outline-item.lvl-5,
+.xd-outline-item.lvl-6 {
+  padding-left: 2.7rem;
+  color: var(--xdocs-color-muted);
+}
+
+/* Slash (`/`) insert menu + emoji picker popups. */
+.xd-slash,
+.xd-emoji {
+  position: absolute;
+  z-index: 40;
+  background: var(--xdocs-color-bg);
+  border: 1px solid var(--xdocs-color-border);
+  border-radius: 7px;
+  box-shadow: 0 8px 24px rgba(16, 24, 40, 0.18);
+  padding: 0.25rem;
+}
+.xd-slash[hidden],
+.xd-emoji[hidden] {
+  display: none;
+}
+.xd-slash {
+  display: flex;
+  flex-direction: column;
+  min-width: 180px;
+  max-height: 260px;
+  overflow-y: auto;
+}
+.xd-slash-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  border: 0;
+  background: none;
+  color: inherit;
+  cursor: pointer;
+  padding: 0.3rem 0.45rem;
+  border-radius: 5px;
+  font-size: 0.85rem;
+  text-align: left;
+}
+.xd-slash-item.active,
+.xd-slash-item:hover {
+  background: color-mix(in srgb, var(--xdocs-color-primary) 16%, transparent);
+}
+.xd-slash-ico {
+  display: inline-flex;
+  justify-content: center;
+  min-width: 1.6rem;
+  font-weight: 600;
+  color: var(--xdocs-color-primary);
+}
+.xd-emoji {
+  display: grid;
+  grid-template-columns: repeat(10, 1fr);
+  gap: 0.1rem;
+  max-width: 280px;
+}
+.xd-emoji button {
+  border: 0;
+  background: none;
+  cursor: pointer;
+  font-size: 1rem;
+  padding: 0.2rem;
+  border-radius: 5px;
+}
+.xd-emoji button:hover {
+  background: var(--xdocs-color-surface);
+}
+
+/* Block the editor caret currently sits in / a clicked block: highlighted in the
+   preview so the two panes stay visually linked. */
+.xd-preview .xd-sl-active {
+  background: color-mix(in srgb, var(--xdocs-color-primary) 12%, transparent);
+  border-radius: 4px;
+  box-shadow: -3px 0 0 var(--xdocs-color-primary);
 }

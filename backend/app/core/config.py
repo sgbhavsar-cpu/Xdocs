@@ -16,6 +16,9 @@ class Settings(BaseSettings):
 
     database_url: str = "postgresql+asyncpg://xdocs:xdocs@localhost:5432/xdocs"
     redis_url: str = "redis://localhost:6379/0"
+    # Optional table-name prefix (e.g. "Docs_") for deployments that namespace
+    # the schema in a shared database. Empty (default) keeps the bare table names.
+    db_table_prefix: str = ""
 
     # Auth — host-issued JWT validated against the host IdP's JWKS (design §16.1).
     jwt_issuer: str = "https://mock-idp.local"
@@ -24,6 +27,11 @@ class Settings(BaseSettings):
     jwks_url: str = "http://localhost:8080/.well-known/jwks.json"
 
     cors_allowed_origins: str = "http://localhost:8080"
+
+    # Public base URL of this API, used to build absolute media URLs embedded in
+    # imported/authored content so the reader (served from the host origin) can
+    # load them. Empty -> relative URLs.
+    api_public_url: str = ""
 
     # LLM / embeddings (default to offline mock; design §16.2).
     llm_provider: str = "mock"  # mock | openai | azure

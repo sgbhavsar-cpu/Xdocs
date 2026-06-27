@@ -11,6 +11,15 @@ class CreateSpaceReq(BaseModel):
     slug: str
     title: str
     default_locale: str = "en"
+    description: str | None = None
+    color: str | None = None
+
+
+class UpdateSpaceReq(BaseModel):
+    title: str | None = None
+    description: str | None = None
+    color: str | None = None
+    default_locale: str | None = None
 
 
 class CreateBookReq(BaseModel):
@@ -21,14 +30,38 @@ class CreateBookReq(BaseModel):
     sort_order: int = 0
 
 
+class CreateBookInSpaceReq(BaseModel):
+    title: str
+
+
+class UpdateBookReq(BaseModel):
+    title: str
+
+
+class CreateSectionReq(BaseModel):
+    book_id: uuid.UUID
+    title: str
+
+
+class UpdateSectionReq(BaseModel):
+    title: str
+
+
 class CreatePageReq(BaseModel):
     book_id: uuid.UUID
     slug: str
     title: str
     locale: str = "en"
     parent_page_id: uuid.UUID | None = None
+    section_id: uuid.UUID | None = None
     markdown: str = ""
     sort_order: int = 0
+
+
+class UpdatePageReq(BaseModel):
+    title: str | None = None
+    slug: str | None = None
+    locale: str = "en"
 
 
 class SaveTranslationReq(BaseModel):

@@ -11,16 +11,16 @@ import uuid
 from sqlalchemy import ForeignKey, Integer, LargeBinary, String, Uuid
 from sqlalchemy.orm import Mapped, mapped_column
 
-from app.core.db import Base
+from app.core.db import Base, t
 from app.models.content import TimestampMixin
 
 
 class MediaAsset(Base, TimestampMixin):
-    __tablename__ = "media_asset"
+    __tablename__ = t("media_asset")
 
     id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
     space_id: Mapped[uuid.UUID | None] = mapped_column(
-        ForeignKey("space.id", ondelete="CASCADE"), nullable=True
+        ForeignKey(t("space.id"), ondelete="CASCADE"), nullable=True
     )
     filename: Mapped[str] = mapped_column(String(256))
     content_type: Mapped[str] = mapped_column(String(128))

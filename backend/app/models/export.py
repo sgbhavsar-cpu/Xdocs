@@ -8,7 +8,7 @@ from datetime import datetime
 from sqlalchemy import DateTime, Integer, LargeBinary, String, Text, Uuid
 from sqlalchemy.orm import Mapped, mapped_column
 
-from app.core.db import Base
+from app.core.db import Base, t
 from app.models.content import TimestampMixin
 
 
@@ -19,7 +19,7 @@ class ExportJob(Base, TimestampMixin):
     adapter can move to S3/MinIO for larger documents without API changes.
     """
 
-    __tablename__ = "export_job"
+    __tablename__ = t("export_job")
 
     id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
     scope_type: Mapped[str] = mapped_column(String(16))  # page | book | space | artifact

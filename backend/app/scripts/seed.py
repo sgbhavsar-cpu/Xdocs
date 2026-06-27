@@ -106,10 +106,14 @@ def _translation(locale: str, title: str, md: str, status: str = "human") -> Pag
         locale=locale,
         title=title,
         markdown=md,
+        # Seeded pages are published, so the working draft and the published
+        # snapshot start identical (no pending draft).
+        published_markdown=md,
         html_cached=html,
         headings=headings,
         translation_status=status,
         revision=1,
+        published_revision=1,
         published_at=_NOW,
     )
 

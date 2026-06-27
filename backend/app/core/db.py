@@ -15,6 +15,16 @@ class Base(DeclarativeBase):
 
 
 _settings = get_settings()
+
+
+def t(name: str) -> str:
+    """Apply the configured table-name prefix to a table name or FK target.
+
+    Accepts a bare table name (``"space"``) or an FK reference (``"space.id"``)
+    and prepends ``db_table_prefix``. With the default empty prefix this is a
+    no-op, so existing deployments and migrations are unaffected.
+    """
+    return f"{_settings.db_table_prefix}{name}"
 engine = create_async_engine(_settings.database_url, pool_pre_ping=True, future=True)
 SessionLocal = async_sessionmaker(engine, expire_on_commit=False, class_=AsyncSession)
 

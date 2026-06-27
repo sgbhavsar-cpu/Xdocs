@@ -7,6 +7,7 @@ export default [
       globals: {
         window: 'readonly',
         document: 'readonly',
+        DOMParser: 'readonly',
         customElements: 'readonly',
         HTMLElement: 'readonly',
         CSSStyleSheet: 'readonly',
@@ -22,6 +23,8 @@ export default [
         TextDecoder: 'readonly',
         Blob: 'readonly',
         URL: 'readonly',
+        URLSearchParams: 'readonly',
+        localStorage: 'readonly',
         JSON: 'readonly',
         Error: 'readonly',
         FormData: 'readonly',
