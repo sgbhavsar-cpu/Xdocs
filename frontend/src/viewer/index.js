@@ -11,6 +11,7 @@
  * follow-up (B5); fenced mermaid/math blocks are left intact for that step.
  */
 
+import { mountDevPanel } from '../shared/devpanel.js';
 import { t } from '../shared/i18n.js';
 import { highlightCode, renderMath, renderMermaid } from './enhancers.js';
 
@@ -34,6 +35,7 @@ class XdocsViewer extends HTMLElement {
   #currentPageId = null;
   #answerId = null;
   #version = null;
+  #canEdit = false;
 
   constructor() {
     super();
@@ -70,7 +72,15 @@ class XdocsViewer extends HTMLElement {
     this.#observeSize();
     this.#ready = true;
     this.#emit('xdocs:ready', { version: '0.0.1' });
+    this.#mountDevPanel();
     this.#init();
+  }
+
+  /** ISDEV=1: a runtime config panel (space/version/theme/colour overrides). */
+  #mountDevPanel() {
+    mountDevPanel(this, this.#shadow, {
+      fetchSpaces: async () => (await this.#api('/spaces')).items || [],
+    });
   }
 
   #upgradeProperty(prop) {
@@ -148,6 +158,7 @@ class XdocsViewer extends HTMLElement {
           </div>
           <button class="xd-ask-btn" aria-label="Ask the docs">🤖 Ask</button>
           <button class="xd-export-btn" aria-label="Export page as PDF">⤓ PDF</button>
+          <button class="xd-edit-btn" aria-label="Edit this page" hidden>✎ Edit</button>
         </header>
         <div class="xd-body">
           <nav class="xd-nav" aria-label="Pages"><p>Loading…</p></nav>
@@ -255,6 +266,12 @@ class XdocsViewer extends HTMLElement {
       if (this.#currentPageId) {
         this.#downloadExport({ type: 'page', id: this.#currentPageId }, 'page.pdf').catch(() => {});
       }
+    });
+
+    // Edit hands off to the host, which swaps in the authoring surface for the
+    // page currently being read (shown only when the user has write access).
+    this.#shadow.querySelector('.xd-edit-btn').addEventListener('click', () => {
+      this.#emit('xdocs:edit', { space: this.space, pageId: this.#currentPageId });
     });
   }
 
@@ -417,6 +434,7 @@ class XdocsViewer extends HTMLElement {
     set('.xd-search', 'search', 'placeholder');
     set('.xd-ask-btn', 'ask');
     set('.xd-export-btn', 'exportPdf');
+    set('.xd-edit-btn', 'edit');
     set('.xd-ask-head strong', 'askTitle');
     set('.xd-ask-summary', 'summarize');
     const scopeOpts = this.#shadow.querySelectorAll('.xd-scope option, .xd-ask-scope option');
@@ -495,13 +513,23 @@ class XdocsViewer extends HTMLElement {
       return;
     }
     try {
-      await this.#api('/me'); // verify auth before loading content
+      const me = await this.#api('/me'); // verify auth before loading content
+      this.#applyPermissions(me);
       await this.#loadVersions();
       await this.#loadTree();
     } catch (err) {
       this.#status(`Connection failed: ${err.message}`);
       this.#emit('xdocs:error', { code: 'load_failed', message: err.message });
     }
+  }
+
+  /** Show the Edit affordance only when the principal can author this space. */
+  #applyPermissions(me) {
+    const writable = new Set(['write', 'admin']);
+    const space = me?.space_permissions?.[this.space];
+    this.#canEdit = writable.has(space) || writable.has(me?.global_permission);
+    const btn = this.#shadow.querySelector('.xd-edit-btn');
+    if (btn) btn.hidden = !this.#canEdit;
   }
 
   async #loadVersions() {
@@ -550,6 +578,9 @@ class XdocsViewer extends HTMLElement {
 
   #firstPage() {
     for (const book of this.#tree.books) {
+      for (const sec of book.sections || []) {
+        if (sec.pages.length) return sec.pages[0];
+      }
       if (book.pages.length) return book.pages[0];
     }
     return null;
@@ -569,10 +600,19 @@ class XdocsViewer extends HTMLElement {
         .join('');
       return items;
     };
+    const renderSections = (sections) =>
+      (sections || [])
+        .map(
+          (s) => `
+        <div class="xd-section-nav">${s.title}</div>
+        <ul>${renderPages(s.pages)}</ul>`
+        )
+        .join('');
     nav.innerHTML = this.#tree.books
       .map(
         (b) => `
         <div class="xd-book">${b.title}</div>
+        ${renderSections(b.sections)}
         <ul>${renderPages(b.pages)}</ul>`
       )
       .join('');

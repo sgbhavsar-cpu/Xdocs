@@ -42,6 +42,11 @@ async def test_upload_and_serve(seeded_client: tuple[AsyncClient, AsyncSession])
     assert resp.status_code == 200
     body = resp.json()
     assert body["content_type"] == "image/png"
+
+    # Media is served publicly by its unguessable UUID so browser <img> tags (which
+    # cannot send an Authorization header) can load it. Clear the auth override to
+    # prove no credentials are required.
+    app.dependency_overrides.pop(get_current_user, None)
     served = await client.get(body["url"])
     assert served.status_code == 200
     assert served.headers["content-type"] == "image/png"

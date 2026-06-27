@@ -27,6 +27,9 @@ examples/test-host/public/dist/
 .idea/
 *.swp
 
+# Local verification screenshots
+verify-*.png
+
 # Keep shared VS Code workspace config, ignore user-local overrides.
 .vscode/*
 !.vscode/extensions.json

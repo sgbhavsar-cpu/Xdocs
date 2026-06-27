@@ -7,6 +7,8 @@
  * on query submit, so the host can route to a `<xdocs-viewer>`.
  */
 
+import { mountDevPanel } from '../shared/devpanel.js';
+
 // Replaced at build time with the compiled Tailwind stylesheet (build.mjs).
 const STYLES = __XDOCS_CSS__;
 
@@ -49,6 +51,11 @@ class XdocsMaster extends HTMLElement {
     this.#upgradeProperty('tokenProvider');
     this.#ready = true;
     this.dispatchEvent(new CustomEvent('xdocs:ready', { bubbles: true, composed: true }));
+    if (this.#tokenProvider) {
+      mountDevPanel(this, this.#shadow, {
+        fetchSpaces: async () => (await this.#api('/spaces')).items || [],
+      });
+    }
     this.#load();
   }
 
@@ -142,7 +149,9 @@ class XdocsMaster extends HTMLElement {
     cards.innerHTML = spaces
       .map(
         (s) => `
-        <button class="xd-card" data-slug="${s.slug}">
+        <button class="xd-card" data-slug="${s.slug}"${
+          s.color ? ` style="--xd-space-color:${s.color}"` : ''
+        }>
           <span class="xd-card-title">${s.title}</span>
           <span class="xd-card-desc">${s.description || ''}</span>
           <span class="xd-card-meta">${s.visible_versions.length} version(s)</span>

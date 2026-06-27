@@ -59,6 +59,38 @@ async def test_spaces_admin_sees_all(seeded_client: tuple[AsyncClient, AsyncSess
 
 
 @pytest.mark.asyncio
+async def test_space_color_and_tree_sections(
+    seeded_client: tuple[AsyncClient, AsyncSession],
+) -> None:
+    client, session = seeded_client
+    _as(ADMIN)
+
+    # Colour set by an admin surfaces on the read portal payload.
+    await client.put("/api/v1/admin/spaces/sql-server", json={"color": "#0b5cad"})
+    spaces = await client.get("/api/v1/spaces")
+    row = next(s for s in spaces.json()["items"] if s["slug"] == "sql-server")
+    assert row["color"] == "#0b5cad"
+
+    # Group a published page under a section and confirm the reader tree shows it.
+    from app.models.content import Book
+
+    bid = str((await session.execute(select(Book).where(Book.slug == "t-sql"))).scalar_one().id)
+    sec = await client.post("/api/v1/admin/sections", json={"book_id": bid, "title": "Statements"})
+    section_id = sec.json()["id"]
+    page = await client.post(
+        "/api/v1/admin/pages",
+        json={"book_id": bid, "slug": "update", "title": "UPDATE", "section_id": section_id},
+    )
+    await client.post(f"/api/v1/admin/pages/{page.json()['id']}/publish")
+
+    tree = await client.get("/api/v1/spaces/sql-server/tree")
+    assert tree.status_code == 200
+    book = next(b for b in tree.json()["books"] if b["id"] == bid)
+    section = next(s for s in book["sections"] if s["id"] == section_id)
+    assert any(p["title"] == "UPDATE" for p in section["pages"])
+
+
+@pytest.mark.asyncio
 async def test_space_default_and_visible_versions(
     seeded_client: tuple[AsyncClient, AsyncSession],
 ) -> None:

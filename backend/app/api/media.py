@@ -63,13 +63,23 @@ async def upload_media(
 
 
 @router.get("/media/{media_id}")
-async def serve_media(media_id: uuid.UUID, session: Session, user: CurrentUser) -> Response:
+async def serve_media(media_id: uuid.UUID, session: Session) -> Response:
+    """Serve a media asset by its id.
+
+    Public by design: a browser ``<img>`` cannot send an Authorization header, so
+    media is reachable via its unguessable UUID acting as a capability URL. Upload
+    remains permission-gated; only retrieval-by-id is open.
+    """
     asset = (
         await session.execute(select(MediaAsset).where(MediaAsset.id == media_id))
     ).scalar_one_or_none()
     if asset is None:
         raise NotFoundError("Media not found.", details={"id": str(media_id)})
-    return Response(content=asset.content, media_type=asset.content_type)
+    return Response(
+        content=asset.content,
+        media_type=asset.content_type,
+        headers={"Cache-Control": "public, max-age=31536000, immutable"},
+    )
 
 
 def _as_uuid(value: str) -> uuid.UUID | None:

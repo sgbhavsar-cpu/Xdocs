@@ -58,6 +58,45 @@ describe('<xdocs-viewer>', () => {
     el.remove();
   });
 
+  it('ISDEV mounts a dev-config panel that can switch space + override a color', async () => {
+    const el = document.createElement('xdocs-viewer');
+    el.setAttribute('base-url', 'http://api.test');
+    el.setAttribute('isdev', ''); // activates the panel without a query string
+    globalThis.fetch = async (url) => {
+      let body = {};
+      if (url.endsWith('/spaces')) {
+        body = {
+          items: [
+            { slug: 'sql-server', title: 'SQL Server', visible_versions: [{ label: '2022' }] },
+            { slug: 'platform', title: 'Platform', visible_versions: [{ label: '1.0' }] },
+          ],
+        };
+      }
+      return { ok: true, status: 200, json: async () => body };
+    };
+    el.tokenProvider = async () => 'tok';
+    document.body.appendChild(el);
+    await new Promise((r) => setTimeout(r, 40));
+
+    // Panel mounted; space dropdown populated from /spaces.
+    expect(el.shadowRoot.querySelector('.xd-devpanel-toggle')).toBeTruthy();
+    const spaceSel = el.shadowRoot.querySelector('.xd-dp-space');
+    expect([...spaceSel.options].map((o) => o.value)).toEqual(['sql-server', 'platform']);
+
+    // Selecting a space sets the control's `space` attribute live.
+    spaceSel.value = 'platform';
+    spaceSel.dispatchEvent(new Event('change'));
+    expect(el.getAttribute('space')).toBe('platform');
+
+    // A color override is applied as an inline custom property + reflected in the CSS snippet.
+    const primary = el.shadowRoot.querySelector('.xd-dp-colors input[type="color"]');
+    primary.value = '#ff0000';
+    primary.dispatchEvent(new Event('input'));
+    expect(el.style.getPropertyValue('--xdocs-color-primary')).toBe('#ff0000');
+    expect(el.shadowRoot.querySelector('.xd-dp-css').value).toContain('--xdocs-color-primary: #ff0000');
+    el.remove();
+  });
+
   it('shows "not configured" when base-url/tokenProvider are absent', () => {
     const el = document.createElement('xdocs-viewer');
     document.body.appendChild(el);

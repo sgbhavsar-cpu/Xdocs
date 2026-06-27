@@ -22,6 +22,7 @@ dependencies = [
   "nh3>=0.2.18",
   "playwright>=1.47",
   "python-multipart>=0.0.9",
+  "pdfminer.six>=20231228",
 ]
 
 [project.optional-dependencies]
@@ -32,6 +33,7 @@ dev = [
   "ruff>=0.6",
   "mypy>=1.11",
   "aiosqlite>=0.20",
+  "reportlab>=4.0",
 ]
 
 [build-system]
@@ -55,7 +57,7 @@ disallow_untyped_defs = true
 plugins = []
 
 [[tool.mypy.overrides]]
-module = ["playwright.*"]
+module = ["playwright.*", "pdfminer.*"]
 ignore_missing_imports = true
 
 [tool.pytest.ini_options]

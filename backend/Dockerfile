@@ -10,8 +10,10 @@ WORKDIR /app
 COPY pyproject.toml ./
 RUN pip install --upgrade pip && pip install -e ".[dev]"
 # Chromium for server-side PDF rendering (Epic E). Default renderer is `mock`;
-# set PDF_RENDERER=chromium to use this.
-RUN playwright install --with-deps chromium
+# set PDF_RENDERER=chromium to use this. Made non-fatal so the stack still builds
+# offline when the browser download is unavailable (PDF falls back to mock).
+RUN playwright install --with-deps chromium || \
+    echo "WARN: chromium install failed; PDF export limited to mock renderer"
 
 COPY . .
 

@@ -3,95 +3,272 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Xdocs — Test Host</title>
+    <title>Acme Docs — powered by Xdocs</title>
     <style>
       :root {
-        font-family: ui-sans-serif, system-ui, sans-serif;
+        --bg: #f4f6fb;
+        --surface: #ffffff;
+        --border: #e6e8ee;
+        --fg: #1f2733;
+        --muted: #67708090;
+        --muted-solid: #5b6573;
+        --primary: #0b5cad;
+        --primary-ink: #0a4f96;
+        --ring: rgba(11, 92, 173, 0.18);
+        --radius: 14px;
+        --shadow: 0 1px 2px rgba(16, 24, 40, 0.04), 0 8px 24px rgba(16, 24, 40, 0.06);
+        color-scheme: light;
       }
+      body[data-theme='dark'] {
+        --bg: #0b1120;
+        --surface: #111a2e;
+        --border: #1f2a44;
+        --fg: #e6eaf2;
+        --muted: #9aa6bd;
+        --muted-solid: #9aa6bd;
+        --primary: #4b9bff;
+        --primary-ink: #6fb0ff;
+        --ring: rgba(75, 155, 255, 0.25);
+        --shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 10px 30px rgba(0, 0, 0, 0.45);
+        color-scheme: dark;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+      html,
       body {
         margin: 0;
-        background: #eef2f7;
       }
-      .host-bar {
+      body {
+        font-family:
+          'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+        background:
+          radial-gradient(1200px 480px at 100% -10%, var(--ring), transparent 60%), var(--bg);
+        color: var(--fg);
+        min-height: 100vh;
+      }
+
+      /* ---- Top navigation bar ---- */
+      .topbar {
+        position: sticky;
+        top: 0;
+        z-index: 20;
         display: flex;
         align-items: center;
-        gap: 0.75rem;
-        padding: 0.5rem 1rem;
-        background: #111827;
+        gap: 1rem;
+        padding: 0.7rem clamp(1rem, 4vw, 2rem);
+        background: color-mix(in srgb, var(--surface) 86%, transparent);
+        backdrop-filter: saturate(140%) blur(8px);
+        border-bottom: 1px solid var(--border);
+      }
+      .brand {
+        display: flex;
+        align-items: center;
+        gap: 0.6rem;
+        font-weight: 750;
+        letter-spacing: -0.01em;
+        font-size: 1.05rem;
+      }
+      .brand-mark {
+        display: grid;
+        place-items: center;
+        width: 30px;
+        height: 30px;
+        border-radius: 9px;
+        background: linear-gradient(150deg, var(--primary), #5aa2ee);
         color: #fff;
+        font-size: 1rem;
+        box-shadow: 0 2px 8px var(--ring);
       }
-      .host-bar strong {
-        font-weight: 700;
+      .brand-sub {
+        color: var(--muted-solid);
+        font-weight: 500;
+        font-size: 0.82rem;
+        padding-left: 0.6rem;
+        margin-left: 0.2rem;
+        border-left: 1px solid var(--border);
       }
-      .host-bar select,
-      .host-bar button {
-        padding: 0.25rem 0.5rem;
-        border-radius: 6px;
-        border: 1px solid #374151;
-        background: #1f2937;
-        color: #fff;
+      .spacer {
+        flex: 1;
       }
-      .frame {
-        max-width: 1200px;
-        margin: 1rem auto;
-        background: #fff;
+      .actions {
+        display: flex;
+        align-items: center;
+        gap: 0.6rem;
+      }
+      .role-chip {
+        display: flex;
+        align-items: center;
+        gap: 0.45rem;
+        padding: 0.32rem 0.7rem;
+        border: 1px solid var(--border);
+        border-radius: 999px;
+        background: var(--surface);
+        font-size: 0.85rem;
+        color: var(--muted-solid);
+      }
+      .role-chip .dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background: #16a34a;
+        box-shadow: 0 0 0 3px color-mix(in srgb, #16a34a 22%, transparent);
+      }
+      .role-chip select {
+        border: none;
+        background: transparent;
+        color: var(--fg);
+        font: inherit;
+        font-weight: 600;
+        cursor: pointer;
+        outline: none;
+      }
+      .icon-btn {
+        display: grid;
+        place-items: center;
+        width: 36px;
+        height: 36px;
         border-radius: 10px;
-        box-shadow: 0 1px 4px rgba(0, 0, 0, 0.1);
+        border: 1px solid var(--border);
+        background: var(--surface);
+        color: var(--fg);
+        cursor: pointer;
+        font-size: 1rem;
+        transition:
+          transform 0.06s ease,
+          border-color 0.15s ease;
+      }
+      .icon-btn:hover {
+        border-color: var(--primary);
+      }
+      .icon-btn:active {
+        transform: translateY(1px);
+      }
+
+      /* ---- Breadcrumbs ---- */
+      .crumbs {
+        display: flex;
+        align-items: center;
+        gap: 0.45rem;
+        max-width: 1200px;
+        margin: 1.1rem auto 0;
+        padding: 0 clamp(1rem, 4vw, 2rem);
+        color: var(--muted-solid);
+        font-size: 0.85rem;
+      }
+      .crumbs a {
+        color: var(--primary);
+        text-decoration: none;
+        font-weight: 600;
+      }
+      .crumbs a:hover {
+        text-decoration: underline;
+      }
+      .crumbs .sep {
+        opacity: 0.5;
+      }
+      .crumbs .here {
+        color: var(--fg);
+        font-weight: 600;
+      }
+
+      /* ---- Content surface ---- */
+      .surface {
+        max-width: 1200px;
+        margin: 0.7rem auto 2rem;
+        padding: 0 clamp(1rem, 4vw, 2rem);
+      }
+      .card {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        box-shadow: var(--shadow);
         overflow: hidden;
       }
-      .note {
+
+      /* ---- Footer ---- */
+      .pagefoot {
         max-width: 1200px;
-        margin: 0.5rem auto;
-        color: #6b7280;
-        font-size: 0.85rem;
-        padding: 0 1rem;
+        margin: 0 auto 2.5rem;
+        padding: 0 clamp(1rem, 4vw, 2rem);
+        color: var(--muted-solid);
+        font-size: 0.8rem;
+        line-height: 1.5;
+      }
+      .pagefoot code {
+        background: color-mix(in srgb, var(--fg) 8%, transparent);
+        padding: 0.05rem 0.35rem;
+        border-radius: 5px;
+        font-size: 0.78rem;
+      }
+      [hidden] {
+        display: none !important;
       }
     </style>
   </head>
-  <body>
-    <!-- This bar belongs to the HOST app, demonstrating the control embeds in an arbitrary page. -->
-    <div class="host-bar">
-      <strong>Acme App</strong>
-      <span>(host application)</span>
-      <label style="margin-left: auto">
-        Role:
-        <select id="role">
-          <option value="reader">reader</option>
-          <option value="editor">editor</option>
-          <option value="admin">admin</option>
-        </select>
-      </label>
-      <label>
-        Theme:
-        <select id="theme">
-          <option value="auto">auto</option>
-          <option value="light">light</option>
-          <option value="dark">dark</option>
-        </select>
-      </label>
-      <button id="adminBtn">Admin</button>
-    </div>
+  <body data-theme="light">
+    <!-- This chrome belongs to the HOST app, showing the control embedded in a real page. -->
+    <header class="topbar">
+      <div class="brand">
+        <span class="brand-mark">◆</span>
+        <span>Acme Docs</span>
+        <span class="brand-sub">Product documentation</span>
+      </div>
+      <div class="spacer"></div>
+      <div class="actions">
+        <button id="manage-spaces" class="icon-btn" title="Manage spaces" aria-label="Manage spaces" hidden style="width:auto;padding:0 0.7rem;gap:0.4rem">
+          ⚙ Manage spaces
+        </button>
+        <span class="role-chip" title="Demo: the host issues a JWT for this role; the Edit button appears only with write access.">
+          <span class="dot"></span>
+          Viewing as
+          <select id="role" aria-label="Demo role">
+            <option value="reader">Reader</option>
+            <option value="editor">Editor</option>
+            <option value="admin">Admin</option>
+          </select>
+        </span>
+        <button id="theme-toggle" class="icon-btn" title="Toggle light / dark" aria-label="Toggle theme">
+          🌗
+        </button>
+      </div>
+    </header>
 
-    <p class="note" id="crumb">Portal — pick a documentation space.</p>
-    <div class="frame">
-      <!-- Master/portal page: lists spaces the user can read. -->
-      <xdocs-master id="master" base-url="http://localhost:8000" theme="auto">
-        <span slot="logo" style="font-weight: 700; color: #0b5cad">Acme Docs</span>
-      </xdocs-master>
+    <nav class="crumbs" id="crumb" aria-label="Breadcrumb">
+      <span class="here">Documentation</span>
+    </nav>
 
-      <!-- Reader control; shown when a space is opened from the portal. -->
-      <xdocs-viewer id="viewer" base-url="http://localhost:8000" theme="auto" hidden>
-        <span slot="logo" style="font-weight: 700; color: #0b5cad">Acme Docs</span>
-      </xdocs-viewer>
+    <main class="surface">
+      <div class="card">
+        <!-- Portal: lists the spaces the current role may read. -->
+        <xdocs-master id="master" base-url="http://localhost:8000" theme="auto">
+          <span slot="logo" style="font-weight: 750; color: var(--primary)">Acme Docs</span>
+        </xdocs-master>
 
-      <!-- CMS authoring (needs the editor/admin role). -->
-      <xdocs-admin id="admin" base-url="http://localhost:8000" space="sql-server" locales="en,fr,de" theme="auto" hidden>
-      </xdocs-admin>
-    </div>
-    <p class="note">
-      The role selector re-issues a demo JWT from the mock IdP (<code>/auth/token</code>); the
-      control sends it to the backend, which validates it against the mock IdP's JWKS. The portal
-      shows only spaces the role may read (try <em>reader</em> vs <em>admin</em>).
+        <!-- Reader: shown when a space is opened. Has its own perm-gated Edit button. -->
+        <xdocs-viewer id="viewer" base-url="http://localhost:8000" theme="auto" hidden>
+          <span slot="logo" style="font-weight: 750; color: var(--primary)">Acme Docs</span>
+        </xdocs-viewer>
+
+        <!-- Authoring: shown when the reader's Edit button is pressed. -->
+        <xdocs-admin
+          id="admin"
+          base-url="http://localhost:8000"
+          locales="en,fr,de"
+          theme="auto"
+          hidden
+        ></xdocs-admin>
+      </div>
+    </main>
+
+    <p class="pagefoot">
+      Demo host for the <strong>Xdocs</strong> embeddable control. The host issues a short-lived JWT
+      for the selected role from a mock IdP (<code>/auth/token</code>); the control validates it
+      against the IdP's JWKS. Switch <em>Reader → Editor</em> to see the in-page
+      <strong>✎ Edit</strong> button appear — no separate “admin” mode.
+      Append <code>?ISDEV=1</code> to the URL to open the control's runtime
+      <strong>⚙ dev-config</strong> panel (space/version, theme, and live color overrides).
     </p>
 
     <script type="module" src="/dist/xdocs.js"></script>
@@ -102,11 +279,11 @@
       const viewer = document.getElementById('viewer');
       const admin = document.getElementById('admin');
       const roleSel = document.getElementById('role');
-      const themeSel = document.getElementById('theme');
       const crumb = document.getElementById('crumb');
-      const adminBtn = document.getElementById('adminBtn');
+      const themeBtn = document.getElementById('theme-toggle');
+      const manageBtn = document.getElementById('manage-spaces');
 
-      // Host provides tokens to all controls on demand (host-issued JWT flow, §16.1).
+      // The host hands every control a fresh token for the chosen role (§16.1).
       const tokenProvider = async () => {
         const resp = await fetch(`/auth/token?role=${roleSel.value}`);
         const { token } = await resp.json();
@@ -114,55 +291,133 @@
       };
       master.tokenProvider = tokenProvider;
       viewer.tokenProvider = tokenProvider;
-      admin.tokenProvider = tokenProvider;
 
+      // ---- Breadcrumb helper ----
+      const setCrumb = (parts) => {
+        crumb.replaceChildren();
+        parts.forEach((p, i) => {
+          if (i > 0) {
+            const sep = document.createElement('span');
+            sep.className = 'sep';
+            sep.textContent = '/';
+            crumb.appendChild(sep);
+          }
+          let node;
+          if (p.onClick) {
+            node = document.createElement('a');
+            node.href = '#';
+            node.addEventListener('click', (e) => {
+              e.preventDefault();
+              p.onClick();
+            });
+          } else {
+            node = document.createElement('span');
+            node.className = 'here';
+          }
+          node.textContent = p.label;
+          crumb.appendChild(node);
+        });
+      };
+
+      // ---- View transitions ----
       const showPortal = () => {
         viewer.hidden = true;
         admin.hidden = true;
         master.hidden = false;
-        crumb.textContent = 'Portal — pick a documentation space.';
+        setCrumb([{ label: 'Documentation' }]);
       };
 
-      adminBtn.addEventListener('click', () => {
+      // Admin-only: the spaces management screen inside <xdocs-admin>.
+      const showSpacesAdmin = () => {
         master.hidden = true;
         viewer.hidden = true;
+        admin.removeAttribute('space'); // boots <xdocs-admin> into spaces-list mode
+        admin.tokenProvider = tokenProvider;
         admin.hidden = false;
-        admin.tokenProvider = tokenProvider; // (re)load the tree
-        crumb.innerHTML = `<a href="#" id="back">← Portal</a> &nbsp;/&nbsp; admin (use the editor role)`;
-        document.getElementById('back').addEventListener('click', (ev) => {
-          ev.preventDefault();
-          showPortal();
-        });
-      });
+        setCrumb([{ label: 'Documentation', onClick: showPortal }, { label: 'Spaces' }]);
+      };
 
-      // Open a space from the portal in the reader.
+      const showReader = (slug) => {
+        master.hidden = true;
+        admin.hidden = true;
+        viewer.hidden = false;
+        setCrumb([
+          { label: 'Documentation', onClick: showPortal },
+          { label: slug },
+        ]);
+      };
+
+      const showEditor = (slug, pageId) => {
+        master.hidden = true;
+        viewer.hidden = true;
+        admin.setAttribute('space', slug);
+        admin.tokenProvider = tokenProvider; // (re)load the authoring tree
+        if (pageId) admin.openPageId = pageId; // land on the page being read
+        admin.hidden = false;
+        setCrumb([
+          { label: 'Documentation', onClick: showPortal },
+          { label: slug, onClick: () => showReader(slug) },
+          { label: 'Editing' },
+        ]);
+      };
+
+      // Portal → reader.
       master.addEventListener('xdocs:open-space', (e) => {
         viewer.setAttribute('space', e.detail.slug);
-        master.hidden = true;
-        viewer.hidden = false;
-        crumb.innerHTML = `<a href="#" id="back">← Portal</a> &nbsp;/&nbsp; ${e.detail.slug}`;
-        document.getElementById('back').addEventListener('click', (ev) => {
-          ev.preventDefault();
-          showPortal();
-        });
+        showReader(e.detail.slug);
       });
 
+      // Reader → editor (single Edit button inside the reader).
+      viewer.addEventListener('xdocs:edit', (e) => {
+        showEditor(e.detail.space || viewer.getAttribute('space'), e.detail.pageId);
+      });
+
+      // Editor → reader (re-init the viewer so published edits are reflected).
+      admin.addEventListener('xdocs:view', (e) => {
+        const slug = e.detail.space || viewer.getAttribute('space');
+        viewer.setAttribute('space', slug);
+        viewer.tokenProvider = tokenProvider; // re-trigger load
+        showReader(slug);
+      });
+
+      // Admin-only entry point to the spaces management screen.
+      manageBtn.addEventListener('click', showSpacesAdmin);
+
+      const syncManageBtn = () => {
+        manageBtn.hidden = roleSel.value !== 'admin';
+      };
+
+      // Changing role re-issues tokens and returns to the portal (the reader's
+      // Edit button then appears/disappears with the new permissions).
+      roleSel.addEventListener('change', () => {
+        master.tokenProvider = tokenProvider;
+        viewer.tokenProvider = tokenProvider;
+        syncManageBtn();
+        showPortal();
+      });
+      syncManageBtn();
+
+      // ---- Theme toggle (host chrome + controls) ----
+      let theme = 'light';
+      const applyTheme = () => {
+        document.body.dataset.theme = theme;
+        [master, viewer, admin].forEach((el) => el.setAttribute('theme', theme));
+        themeBtn.textContent = theme === 'dark' ? '☀️' : '🌙';
+      };
+      themeBtn.addEventListener('click', () => {
+        theme = theme === 'dark' ? 'light' : 'dark';
+        applyTheme();
+      });
+      applyTheme();
+
+      // Observability hooks (handy when embedding for real).
       master.addEventListener('xdocs:search', (e) => console.log('search', e.detail));
       viewer.addEventListener('xdocs:navigate', (e) => console.log('navigate', e.detail));
-      [master, viewer].forEach((el) =>
+      [master, viewer, admin].forEach((el) =>
         el.addEventListener('xdocs:error', (ev) => console.warn('xdocs error', ev.detail))
       );
 
-      roleSel.addEventListener('change', () => {
-        // Re-issue tokens and reload the currently visible control.
-        master.tokenProvider = tokenProvider;
-        viewer.tokenProvider = tokenProvider;
-        showPortal();
-      });
-      themeSel.addEventListener('change', () => {
-        master.setAttribute('theme', themeSel.value);
-        viewer.setAttribute('theme', themeSel.value);
-      });
+      showPortal();
     </script>
   </body>
 </html>

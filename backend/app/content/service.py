@@ -16,7 +16,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.auth.permissions import Permission, Principal
 from app.content.render import render_markdown
 from app.core.errors import ForbiddenError, NotFoundError
-from app.models.content import Book, Page, PageTranslation, ProductVersion, Space
+from app.models.content import Book, Page, PageTranslation, ProductVersion, Section, Space
 
 
 def _version_ref(v: ProductVersion) -> dict[str, Any]:
@@ -46,6 +46,7 @@ async def list_spaces(session: AsyncSession, user: Principal) -> list[dict[str, 
                 "slug": space.slug,
                 "title": space.title,
                 "description": space.description,
+                "color": space.color,
                 "default_locale": space.default_locale,
                 "default_version": _version_ref(default) if default else None,
                 "visible_versions": [_version_ref(v) for v in versions],
@@ -129,7 +130,19 @@ async def get_tree(
                 or next(iter(locales.values()))
             )
 
-    # Build the page tree per book.
+    # Sections (sub-headings) declared in the visible books.
+    sections_by_book: dict[uuid.UUID, list[Section]] = {}
+    if book_ids:
+        section_rows = (
+            await session.execute(
+                select(Section).where(Section.book_id.in_(book_ids)).order_by(Section.sort_order)
+            )
+        ).scalars()
+        for s in section_rows:
+            sections_by_book.setdefault(s.book_id, []).append(s)
+
+    # Build the page tree per book. Children (nested pages) ignore sections; only
+    # top-level pages are grouped under a section header.
     def build_children(book_id: uuid.UUID, parent: uuid.UUID | None) -> list[dict[str, Any]]:
         nodes: list[dict[str, Any]] = []
         for p in pages:
@@ -146,15 +159,46 @@ async def get_tree(
                 )
         return nodes
 
+    def build_roots(book_id: uuid.UUID, section_id: uuid.UUID | None) -> list[dict[str, Any]]:
+        nodes: list[dict[str, Any]] = []
+        for p in pages:
+            if (
+                p.book_id == book_id
+                and p.parent_page_id is None
+                and p.section_id == section_id
+            ):
+                children = build_children(book_id, p.id)
+                nodes.append(
+                    {
+                        "id": p.id,
+                        "slug": p.slug,
+                        "title": titles.get(p.id, p.slug),
+                        "has_children": bool(children),
+                        "children": children,
+                    }
+                )
+        return nodes
+
+    def book_node(b: Book) -> dict[str, Any]:
+        section_nodes = []
+        for s in sections_by_book.get(b.id, []):
+            sp = build_roots(b.id, s.id)
+            if sp:  # hide empty section headers from readers
+                section_nodes.append({"id": s.id, "title": s.title, "pages": sp})
+        return {
+            "id": b.id,
+            "slug": b.slug,
+            "title": b.title,
+            "sections": section_nodes,
+            "pages": build_roots(b.id, None),
+        }
+
     return {
         "space": space.slug,
         "version": _version_ref(version),
         "locale": loc,
         "locales": sorted(locales_present or {space.default_locale}),
-        "books": [
-            {"id": b.id, "slug": b.slug, "title": b.title, "pages": build_children(b.id, None)}
-            for b in books
-        ],
+        "books": [book_node(b) for b in books],
     }
 
 

@@ -17,6 +17,7 @@ class SpaceOut(BaseModel):
     slug: str
     title: str
     description: str | None
+    color: str | None = None
     default_locale: str
     default_version: VersionRef | None
     visible_versions: list[VersionRef]
@@ -35,10 +36,17 @@ class TreePage(BaseModel):
     children: list[TreePage] = []
 
 
+class TreeSection(BaseModel):
+    id: uuid.UUID
+    title: str
+    pages: list[TreePage]
+
+
 class TreeBook(BaseModel):
     id: uuid.UUID
     slug: str
     title: str
+    sections: list[TreeSection] = []
     pages: list[TreePage]
 
 

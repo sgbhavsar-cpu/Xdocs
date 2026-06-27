@@ -36,6 +36,40 @@ def test_table_renders() -> None:
     assert "<table>" in html
 
 
+def test_image_width_and_alignment() -> None:
+    html, _ = render_markdown("![cat](http://x/c.png){width=200 align=center}")
+    assert 'width="200"' in html
+    assert 'class="xd-img-center"' in html
+    # `align` is converted to a class, not emitted as a raw attribute.
+    assert "align=" not in html
+
+
+def test_image_rejects_unsafe_attrs() -> None:
+    # An event-handler attribute on an image must not survive (only the safe
+    # width/height/class/src/alt/title attributes are allowed through).
+    html, _ = render_markdown("![x](http://x/x.png){width=10 onclick=foo}")
+    assert "<img" in html
+    assert 'width="10"' in html
+    assert "onclick" not in html
+
+
+def test_source_map_stamps_block_lines() -> None:
+    # With source_map=True, block elements carry a data-sl line attribute the admin
+    # preview maps back to the Markdown source; the first block starts at line 0.
+    html, _ = render_markdown("# Title\n\npara one\n\n- item\n", source_map=True)
+    assert 'data-sl="0"' in html  # the heading
+    assert 'data-sl="2"' in html  # the paragraph
+    # A standalone fenced code block is stamped (on its inner <code>).
+    fenced, _ = render_markdown("```\ncode\n```", source_map=True)
+    assert "<pre" in fenced and 'data-sl="0"' in fenced
+
+
+def test_source_map_off_by_default() -> None:
+    # Public/page renders never emit data-sl, even though it is allowlisted.
+    html, _ = render_markdown("# Title\n\npara\n")
+    assert "data-sl" not in html
+
+
 def test_xss_is_sanitized() -> None:
     html, _ = render_markdown("<script>alert(1)</script>\n\n[x](javascript:alert(1))")
     # Raw HTML is escaped (no active <script>) and no executable javascript: href
